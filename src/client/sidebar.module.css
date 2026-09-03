@@ -1460,6 +1460,29 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
   box-shadow: 0 0 0 3px rgb(79 70 229 / 0.10);
 }
 
+.lineageSourceTags {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.lineageSourceTag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 140px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xxs-12);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .lineageDropdownWrap {
   flex: none;
   position: relative;

@@ -8,7 +8,6 @@ import {
   type LineageGraph as LineageGraphData,
   type LineageEdge,
   type LineageHistoryEntry,
-  type LineageRevision,
   type LineageNode,
   type LineageWorkspaceSummary,
   evidenceTexts,
@@ -35,7 +34,6 @@ import {
 import { analyzeLineageImpact, findLineagePaths, highlightForTrace, lineageHealth, traceLineage } from './graph-analysis.ts'
 import { applyLineagePatch } from './lineage-patch.ts'
 import { collapseLineageByDomain, layoutDomainGroups } from './domain-collapse.ts'
-import { diffLineageVersions, versionDiffSummary } from './version-diff.ts'
 import css from '../sidebar.module.css'
 
 /** Lineage source badge colors (mirror of EIC-CC's tailwind sourceMeta). */
@@ -53,13 +51,6 @@ const NODE_DETAIL_TABS: { id: NodeDetailTab; label: string }[] = [
   { id: 'inference', label: '推理' },
   { id: 'mapping', label: '映射' },
 ]
-
-/** Human-readable label for one history snapshot in the version selector. */
-function historyLabel(entry: LineageHistoryEntry): string {
-  const counts = `${entry.graph.nodes.length} / ${entry.graph.edges.length}`
-  if (entry.turn !== undefined) return `${t('lineageHistoryTurn', { turn: entry.turn })} · ${counts}`
-  return `${t('lineageHistory')} · ${counts}`
-}
 
 /**
  * The built-in lineage tab: renders a lineage graph (nodes/edges) ported
@@ -91,11 +82,8 @@ export function LineageGraphTab(props: TabComponentProps) {
   const [workspaces, setWorkspaces] = useState<LineageWorkspaceSummary[]>([])
   const [workspaceId, setWorkspaceId] = useState('')
   const [workspaceName, setWorkspaceName] = useState('')
-  const [workspaceModal, setWorkspaceModal] = useState<'closed' | 'new' | 'save'>('closed')
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
-  const [revisions, setRevisions] = useState<LineageRevision[]>([])
   const [history, setHistory] = useState<LineageHistoryEntry[]>([])
-  const [historySelected, setHistorySelected] = useState<string>('latest')
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<LineageNode | null>(null)
@@ -132,8 +120,8 @@ export function LineageGraphTab(props: TabComponentProps) {
   const [pendingPatch, setPendingPatch] = useState<LineagePatchEntry | null>(null)
   const [domainCollapsed, setDomainCollapsed] = useState(false)
   const [expandedDomains, setExpandedDomains] = useState<ReadonlySet<string>>(new Set())
-  const [diffRevisionId, setDiffRevisionId] = useState('')
-  const [menuOpen, setMenuOpen] = useState<'none' | 'file' | 'generate' | 'edit'>('none')
+  const [menuOpen, setMenuOpen] = useState<'none' | 'edit'>('none')
+  const historyRef = useRef<string | null>(null)
 
   // Recompute ontology validation whenever the graph changes
   useEffect(() => { setIssues(validateOntology(graph)) }, [graph])
@@ -157,12 +145,6 @@ export function LineageGraphTab(props: TabComponentProps) {
   /** All low-trust relations, mappings, and imported instances in one governance queue. */
   const reviews = useMemo(() => governanceReviews(graph), [graph])
   const canvasRef = useRef<LineageGraphHandle>(null)
-  const diffRevision = revisions.find((revision) => revision.id === diffRevisionId)
-  const versionDiff = useMemo(
-    () => diffRevision === undefined ? null : diffLineageVersions(diffRevision, graph),
-    [diffRevision, graph],
-  )
-
   const trace = useMemo(
     () => selected === null ? null : traceLineage(graph, selected.id),
     [graph, selected],
@@ -176,22 +158,38 @@ export function LineageGraphTab(props: TabComponentProps) {
     () => layoutDomainGroups(collapseLineageByDomain(graph, expandedDomains), graph),
     [graph, expandedDomains],
   )
+  const sourceTags = useMemo(() => {
+    const tags = new Map<string, { key: string; icon: string; label: string; title: string }>()
+    const basename = (path: string): string => path.split(/[\\/]/).pop() ?? path
+
+    for (const item of [...graph.nodes, ...graph.edges]) {
+      for (const evidence of item.evidences ?? []) {
+        const summary = evidence.summary || evidence.detail || ''
+        if (evidence.type === 'file') {
+          const label = evidence.sourcePath !== undefined && evidence.sourcePath !== ''
+            ? basename(evidence.sourcePath)
+            : summary.slice(0, 32)
+          const key = `file:${evidence.sourcePath ?? summary}`
+          if (label !== '') tags.set(key, { key, icon: '📄', label, title: evidence.sourcePath ?? summary })
+        } else if (evidence.type === 'database' || evidence.type === 'ddl' || evidence.type === 'sql') {
+          const label = evidence.database !== undefined && evidence.objectName !== undefined
+            ? `${evidence.database}.${evidence.objectName}`
+            : evidence.database ?? evidence.objectName ?? evidence.connectionId ?? basename(evidence.sourcePath ?? '')
+          const key = `db:${evidence.connectionId ?? evidence.database ?? evidence.objectName ?? evidence.sourcePath ?? summary}`
+          if (label !== '') tags.set(key, { key, icon: '🗄️', label, title: evidence.detail ?? summary })
+        } else if (evidence.type === 'llm') {
+          tags.set('llm', { key: 'llm', icon: '✨', label: 'LLM联想', title: summary })
+        } else if (evidence.type === 'manual') {
+          tags.set('manual', { key: 'manual', icon: '✍️', label: '手动来源', title: summary })
+        }
+      }
+    }
+    return [...tags.values()]
+  }, [graph])
+
   const displayGraph = domainCollapsed
     ? { nodes: collapsedView.nodes, edges: collapsedView.edges }
     : graph
-
-  const loadDemo = (): void => {
-    setGraph(DEMO_LINEAGE)
-    setWorkspaceId('')
-    setWorkspaceName('')
-    setHistory([])
-    setError(null)
-    setSelected(null)
-    setSelectedEdge(null)
-    setHistorySelected('latest')
-    setRevisions([])
-    setPendingPatch(null)
-  }
 
   const loadPendingPatch = useCallback(async (): Promise<void> => {
     try {
@@ -202,38 +200,14 @@ export function LineageGraphTab(props: TabComponentProps) {
     }
   }, [scope.sessionId, scope.cwd])
 
-  /** Pull the latest graph the model generated in the current conversation. */
-  const generateFromChat = useCallback(async (silent: boolean): Promise<void> => {
-    setChatLoading(true)
-    if (!silent) setError(null)
-    try {
-      const result = await api.lineageHistory(scope)
-      if (result.history.length > 0) {
-        setHistory(result.history)
-        setHistorySelected('latest')
-        setGraph(result.history[0]?.graph ?? DEMO_LINEAGE)
-        setSelected(null)
-        setSelectedEdge(null)
-      } else if (!silent) {
-        setError(t('lineageNoGraph'))
-      }
-    } catch {
-      if (!silent) setError(t('lineageLoadError'))
-    } finally {
-      setChatLoading(false)
-    }
-  }, [scope.sessionId, scope.cwd])
-
-  const applyWorkspace = (workspace: { id: string; name: string; nodes: LineageNode[]; edges: LineageEdge[]; revisions?: LineageRevision[] }): void => {
+  const applyWorkspace = useCallback((workspace: { id: string; name: string; nodes: LineageNode[]; edges: LineageEdge[] }): void => {
     setWorkspaceId(workspace.id)
     setWorkspaceName(workspace.name)
     setGraph({ nodes: workspace.nodes, edges: workspace.edges })
     setSelected(null)
     setSelectedEdge(null)
-    setHistorySelected('latest')
-    setRevisions(workspace.revisions ?? [])
     setPendingPatch(null)
-  }
+  }, [])
 
   const loadWorkspace = useCallback(async (id: string): Promise<void> => {
     setWorkspaceLoading(true)
@@ -247,45 +221,73 @@ export function LineageGraphTab(props: TabComponentProps) {
     }
   }, [scope.sessionId, scope.cwd])
 
-  const loadWorkspaceList = useCallback(async (autoLoad = true): Promise<void> => {
+  const loadWorkspaceList = useCallback(async (autoLoad = true): Promise<LineageWorkspaceSummary[]> => {
     setWorkspaceLoading(true)
     try {
       const result = await api.lineageWorkspaceList(scope)
       setWorkspaces(result.workspaces)
       if (autoLoad && result.workspaces.length > 0) {
         await loadWorkspace(result.workspaces[0]!.id)
-        return
       }
-      if (!autoLoad) {
+      else if (!autoLoad) {
         setWorkspaceId('')
         setWorkspaceName('')
       }
+      return result.workspaces
     } catch {
       setError('加载血缘工作区列表失败')
+      return []
     } finally {
       setWorkspaceLoading(false)
     }
   }, [loadWorkspace, scope.sessionId, scope.cwd])
 
-  const saveWorkspace = async (name: string): Promise<void> => {
-    const trimmed = name.trim()
-    if (trimmed === '') return
-    setWorkspaceLoading(true)
+  /** Persist a newly generated conversation snapshot as a switchable graph version. */
+  const autoSaveGraph = useCallback(async (entry: LineageHistoryEntry): Promise<void> => {
+    if (historyRef.current === entry.id) return
+    const savedWorkspaces = await loadWorkspaceList(false)
+    if (savedWorkspaces.some((workspace) => workspace.description === entry.id)) {
+      historyRef.current = entry.id
+      return
+    }
     try {
       const result = await api.lineageWorkspaceSave(scope, {
-        ...(workspaceId !== '' ? { id: workspaceId } : {}),
-        name: trimmed,
-        graph,
+        description: entry.id,
+        name: entry.turn !== undefined ? `对话生成 · 第${entry.turn}轮` : `对话生成 · ${new Date(entry.time).toLocaleString()}`,
+        graph: entry.graph,
+        source: 'llm',
       })
+      historyRef.current = entry.id
       applyWorkspace(result.workspace)
       await loadWorkspaceList(false)
-      setWorkspaceModal('closed')
     } catch {
-      setError('保存血缘工作区失败')
-    } finally {
-      setWorkspaceLoading(false)
+      setError('自动保存血缘图版本失败')
     }
-  }
+  }, [applyWorkspace, loadWorkspaceList, scope.sessionId, scope.cwd])
+
+  /** Pull the latest graph the model generated in the current conversation. */
+  const generateFromChat = useCallback(async (silent: boolean): Promise<void> => {
+    setChatLoading(true)
+    if (!silent) setError(null)
+    try {
+      const result = await api.lineageHistory(scope)
+      if (result.history.length > 0) {
+        const latest = result.history[0]
+        if (latest === undefined) return
+        setHistory(result.history)
+        setGraph(latest.graph)
+        setSelected(null)
+        setSelectedEdge(null)
+        await autoSaveGraph(latest)
+      } else if (!silent) {
+        setError(t('lineageNoGraph'))
+      }
+    } catch {
+      if (!silent) setError(t('lineageLoadError'))
+    } finally {
+      setChatLoading(false)
+    }
+  }, [autoSaveGraph, scope.sessionId, scope.cwd])
 
   const applyPendingPatch = async (): Promise<void> => {
     if (pendingPatch === null) return
@@ -305,32 +307,6 @@ export function LineageGraphTab(props: TabComponentProps) {
       } catch {
         setError('增量变更已应用，但保存工作区失败')
       }
-    }
-  }
-
-  const openNewWorkspace = (): void => {
-    setWorkspaceId('')
-    setWorkspaceName('')
-    setGraph({ nodes: [], edges: [] })
-    setSelected(null)
-    setSelectedEdge(null)
-    setHistorySelected('latest')
-    setError(null)
-    setWorkspaceModal('new')
-    setRevisions([])
-  }
-
-  const restoreWorkspaceRevision = async (revisionId: string): Promise<void> => {
-    if (workspaceId === '') return
-    setWorkspaceLoading(true)
-    try {
-      const result = await api.lineageWorkspaceRestore(scope, workspaceId, revisionId)
-      applyWorkspace(result.workspace)
-      await loadWorkspaceList(false)
-    } catch {
-      setError('恢复血缘版本失败')
-    } finally {
-      setWorkspaceLoading(false)
     }
   }
 
@@ -456,10 +432,11 @@ export function LineageGraphTab(props: TabComponentProps) {
   // conversation snapshots remain available through "Generate from chat".
   useEffect(() => {
     if (!visible) return
-    void loadWorkspaceList(true).finally(() => {
+    void loadWorkspaceList(false).finally(() => {
       void loadPendingPatch()
+      void generateFromChat(true)
     })
-  }, [visible, loadWorkspaceList, loadPendingPatch])
+  }, [visible, loadWorkspaceList, loadPendingPatch, generateFromChat])
 
   /** Add a node at the clicked canvas position (edit mode). */
   /** Confirm the add-node modal and create the node. */
@@ -726,91 +703,22 @@ export function LineageGraphTab(props: TabComponentProps) {
     <div className={css.editor}>
       <div className={`${css.editorHeader} ${css.lineageHeader}`}>
         <select
-          aria-label="血缘工作区"
+          aria-label="血缘图版本"
           className={css.lineageSelect}
           value={workspaceId}
           disabled={workspaceLoading}
-          onChange={(event) => { const id = event.target.value; if (id !== '') void loadWorkspace(id) }}
+          onChange={(event) => {
+            const id = event.target.value
+            if (id !== '') void loadWorkspace(id)
+          }}
         >
-          <option value="">未保存 / 会话图</option>
+          <option value="">当前会话图</option>
           {workspaces.map((workspace) => (
             <option key={workspace.id} value={workspace.id}>
               {workspace.name} · {workspace.nodeCount}N/{workspace.edgeCount}E
             </option>
           ))}
         </select>
-        <LineageDropdown label="文件" open={menuOpen === 'file'} onToggle={() => setMenuOpen(menuOpen === 'file' ? 'none' : 'file')}>
-          <button type="button" className={css.lineageDropdownItem} disabled={workspaceLoading} onClick={() => { setMenuOpen('none'); openNewWorkspace() }}>新建工作区</button>
-          <button type="button" className={css.lineagePrimaryButton} disabled={workspaceLoading} onClick={() => { setMenuOpen('none'); if (workspaceId === '') setWorkspaceModal('save'); else void saveWorkspace(workspaceName.trim() !== '' ? workspaceName : '未命名血缘图') }}>保存</button>
-          <button type="button" className={css.lineageDropdownItem} disabled={workspaceLoading || workspaceId === ''} onClick={() => { setMenuOpen('none'); if (workspaceId !== '') { void api.lineageWorkspaceDelete(scope, workspaceId); void loadWorkspaceList(false); setWorkspaceModal('closed') } }}>删图</button>
-          <button type="button" className={css.lineageDropdownItem} onClick={() => { setMenuOpen('none'); loadDemo() }}>示例</button>
-          {revisions.length > 0 && (
-            <select
-              aria-label="血缘版本"
-              className={css.lineageSelect}
-              disabled={workspaceLoading}
-              value="."
-              onChange={(event) => { const id = event.target.value; if (id !== '.' && id !== '') { setMenuOpen('none'); void restoreWorkspaceRevision(id) } }}
-            >
-              <option value="." disabled>版本回滚</option>
-              {[...revisions].reverse().map((revision) => (
-                <option key={revision.id} value={revision.id}>
-                  {revision.createdAt.replace('T', ' ').slice(0, 19)} · {revision.source} · {revision.nodes.length}N
-                </option>
-              ))}
-            </select>
-          )}
-          {revisions.length > 0 && (
-            <select
-              aria-label="版本对比"
-              className={css.lineageSelect}
-              value={diffRevisionId}
-              onChange={(event) => { setDiffRevisionId(event.target.value); setMenuOpen('none') }}
-            >
-              <option value="">版本对比（无）</option>
-              {[...revisions].reverse().map((revision) => (
-                <option key={revision.id} value={revision.id}>
-                  {revision.createdAt.replace('T', ' ').slice(0, 19)} · {revision.source}
-                </option>
-              ))}
-            </select>
-          )}
-        </LineageDropdown>
-        <LineageDropdown label="生成" open={menuOpen === 'generate'} onToggle={() => setMenuOpen(menuOpen === 'generate' ? 'none' : 'generate')}>
-          <button type="button" className={css.lineageDropdownItem} disabled={chatLoading} onClick={() => { setMenuOpen('none'); void generateFromChat(false) }}>{chatLoading ? t('loading') : t('lineageGenerate')}</button>
-          <button type="button" className={css.lineageDropdownItem} onClick={() => { setMenuOpen('none'); setAssetOpen(true) }}>{t('lineageAssetExtract')}</button>
-          <button type="button" className={css.lineageDropdownItem} disabled={instanceLoading} onClick={() => { setMenuOpen('none'); void openInstanceImport() }}>{t('lineageImportInstances')}</button>
-          {history.length > 0 && (
-            <select
-              aria-label={t('lineageHistory')}
-              value={historySelected}
-              onChange={(e) => {
-                const id = e.target.value
-                setHistorySelected(id)
-                setMenuOpen('none')
-                if (id === 'latest') {
-                  setGraph(history[0]?.graph ?? DEMO_LINEAGE)
-                  setSelected(null)
-                  setSelectedEdge(null)
-                  setError(null)
-                  return
-                }
-                const entry = history.find((candidate) => candidate.id === id)
-                if (entry === undefined) return
-                setGraph(entry.graph)
-                setSelected(null)
-                setSelectedEdge(null)
-                setError(null)
-              }}
-              className={css.lineageSelect}
-            >
-              <option value="latest">{t('lineageHistoryLatest')}</option>
-              {history.map((entry) => (
-                <option key={entry.id} value={entry.id}>{historyLabel(entry)}</option>
-              ))}
-            </select>
-          )}
-        </LineageDropdown>
         <LineageDropdown label="编辑" open={menuOpen === 'edit'} onToggle={() => setMenuOpen(menuOpen === 'edit' ? 'none' : 'edit')}>
           <button type="button" className={css.lineageDropdownItem} disabled={domainCollapsed} onClick={() => { setMenuOpen('none'); setEditMode(editMode === 'addNode' ? 'none' : 'addNode'); setSelected(null); setSelectedEdge(null) }}>
             {editMode === 'addNode' ? t('lineageCancelEdit') : t('lineageAddNode')}
@@ -842,6 +750,15 @@ export function LineageGraphTab(props: TabComponentProps) {
         <button type="button" className={css.lineageIconButton} title={t('lineageZoomOut')} onClick={() => canvasRef.current?.zoomOut()}>−</button>
         <button type="button" className={css.lineageIconButton} title={t('lineageZoomIn')} onClick={() => canvasRef.current?.zoomIn()}>+</button>
         <button type="button" className={css.lineageToolbarButton} title={t('lineageFit')} onClick={() => canvasRef.current?.fit()}>{t('lineageFit')}</button>
+        {sourceTags.length > 0 && (
+          <div className={css.lineageSourceTags} aria-label="血缘图来源">
+            {sourceTags.map((tag) => (
+              <span key={tag.key} className={css.lineageSourceTag} title={tag.title}>
+                {tag.icon} {tag.label}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className={css.editorBody} style={{ position: 'relative', overflow: 'hidden' }}>
@@ -863,30 +780,6 @@ export function LineageGraphTab(props: TabComponentProps) {
             审核{reviews.length > 0 ? ' · ' + reviews.length : ''}
           </button>
         </div>
-        {versionDiff !== null && (
-          <div
-            className={css.lineageLegend}
-            style={{ top: 12, right: 12, bottom: 'auto', maxWidth: 340 }}
-            aria-label="版本差异"
-          >
-            <div className={css.lineageLegendTitle}>版本差异 · {versionDiffSummary(versionDiff)}</div>
-            <div className={css.lineageAssetList}>
-              {versionDiff.changes.length === 0 && <div className={css.lineageDetailText}>该版本与当前图没有差异。</div>}
-              {versionDiff.changes.map((change) => (
-                <div key={`${change.kind}:${change.id}`} className={css.lineageAssetRow}>
-                  <span className={css.lineageBadgeSecondary}>
-                    {change.action === 'added' ? '新增' : change.action === 'removed' ? '移除' : '修改'}
-                  </span>
-                  <span className={css.lineageAssetCandidate}>
-                    <strong>{change.label}</strong>
-                    <small>{change.kind === 'node' ? '类' : '关系'}{change.fields.length > 0 ? ` · ${change.fields.join(' / ')}` : ''}</small>
-                  </span>
-                </div>
-              ))}
-              {versionDiff.changes.length === 80 && <div className={css.lineageDetailText}>仅显示前 80 项差异。</div>}
-            </div>
-          </div>
-        )}
         <div className={css.editorMain}>
           {pendingPatch !== null && (
             <div className={css.lineageValidationBanner}>
@@ -1221,44 +1114,6 @@ export function LineageGraphTab(props: TabComponentProps) {
               <div className={css.lineageModalFooter}>
                 <button type="button" className={css.lineageToolbarButton} onClick={() => setConnectTarget(null)}>{t('cancel')}</button>
                 <button type="button" className={css.lineagePrimaryButton} onClick={confirmConnect}>{t('lineageConfirm')}</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {workspaceModal !== 'closed' && (
-          <div className={css.lineageModalBackdrop} onClick={() => setWorkspaceModal('closed')}>
-            <div className={css.lineageModal} onClick={(event) => event.stopPropagation()}>
-              <div className={css.lineageModalTitle}>
-                {workspaceModal === 'new' ? '新建血缘工作区' : '保存血缘工作区'}
-              </div>
-              <div className={css.lineageModalBody}>
-                <label className={css.lineageModalLabel}>
-                  <span>图谱名称</span>
-                  <input
-                    autoFocus
-                    value={workspaceName}
-                    onChange={(event) => setWorkspaceName(event.target.value)}
-                    placeholder="例如：订单履约本体血缘图"
-                    onKeyDown={(event) => { if (event.key === 'Enter') void saveWorkspace(workspaceName) }}
-                  />
-                </label>
-                <div className={css.lineageModalHint}>
-                  将保存到当前项目的 .dsh/lineage-workspaces.json
-                </div>
-              </div>
-              <div className={css.lineageModalFooter}>
-                <button type="button" className={css.lineageToolbarButton} onClick={() => setWorkspaceModal('closed')}>
-                  {t('cancel')}
-                </button>
-                <button
-                  type="button"
-                  className={css.lineagePrimaryButton}
-                  disabled={workspaceLoading || workspaceName.trim() === ''}
-                  onClick={() => void saveWorkspace(workspaceName)}
-                >
-                  {workspaceLoading ? t('loading') : '保存'}
-                </button>
               </div>
             </div>
           </div>

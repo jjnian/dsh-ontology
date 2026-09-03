@@ -321,6 +321,7 @@ export const api = {
       id?: string
       name: string
       description?: string
+      source?: string
       sourceAssets?: string[]
       graph: LineageGraph
     },
