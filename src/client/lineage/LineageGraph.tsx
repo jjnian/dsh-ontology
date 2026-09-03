@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import type { LineageNode, LineageEdge } from './lineage-types.ts'
 import { layeredLayout, boundsOf, NODE_W, NODE_H, type XY } from './graph-layout.ts'
 import { LINEAGE_TYPE_STYLES, typeStyle } from './graph-style.ts'
@@ -54,6 +54,10 @@ function edgeDash(source?: string): string | undefined {
  */
 export const LineageGraph = forwardRef<LineageGraphHandle, LineageGraphProps>(function LineageGraph(props, ref) {
   const { nodes, edges, selectedId, selectedEdgeId, highlight, query, onSelect, onSelectEdge, onMove, editMode, onCanvasClick, onConnectClick, connectSourceId } = props
+  const legendStyles = useMemo(() => {
+    const presentTypes = new Set(nodes.map((node) => node.type))
+    return LINEAGE_TYPE_STYLES.filter((style) => presentTypes.has(style.type))
+  }, [nodes])
 
   const [view, setView] = useState<{ x: number; y: number; k: number }>({ x: 60, y: 60, k: 1 })
   const [pos, setPos] = useState<Map<string, XY>>(new Map())
@@ -432,7 +436,7 @@ export const LineageGraph = forwardRef<LineageGraphHandle, LineageGraphProps>(fu
       <div className={css.lineageLegend} aria-label={t('lineageLegend')}>
         <div className={css.lineageLegendTitle}>{t('lineageLegend')}</div>
         <div className={css.lineageLegendGrid}>
-          {LINEAGE_TYPE_STYLES.map((item) => (
+          {legendStyles.map((item) => (
             <div key={item.type} className={css.lineageLegendItem}>
               <span className={css.lineageLegendDot} style={{ background: item.color }} />
               <span>{item.label}</span>
