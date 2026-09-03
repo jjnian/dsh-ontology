@@ -17,6 +17,7 @@ import { revalidateChunksOnReactivate, setChunkModuleSystem } from './chunk-load
 import { registerBuiltins } from './builtins/index.ts'
 import { registerLineageReferenceSource } from './lineage/lineage-reference.ts'
 import { registerLineageToolView } from './lineage/lineage-tool-row.tsx'
+import { lineageDefinition } from './lineage/lineage-turn-data.ts'
 import { Sidebar } from './Sidebar.tsx'
 import { RenderBoundary } from './RenderBoundary.tsx'
 import { registerOpenPathInterception, registerTurnTailInterception } from './intercept.tsx'
@@ -39,7 +40,7 @@ import './layout.css'
  *  service access without inject. The `remote.session` namespace is NOT here:
  *  it mounts asynchronously, so the open-path interception reaches it through
  *  `ctx.inject` (see intercept.tsx). */
-export const inject = ['slots', 'sessions', 'locale', 'modules', 'connection']
+export const inject = ['slots', 'sessions', 'locale', 'modules', 'connection', 'uiConversation']
 
 /**
  * Error boundary over the sidebar tree (root scope): a render error in the
@@ -439,6 +440,10 @@ export function apply(ctx: Context): void {
 
     // Make the lineage_graph tool row clickable: it opens the right-side lineage tab.
     registerLineageToolView(ctx)
+
+    // Track lineage_graph tool calls per turn so the turn-tail row can
+    // offer a lineage chip when the conversation produced a graph.
+    ctx.uiConversation.events.register(lineageDefinition)
 
     // The "Side card" settings section: appears in the DSH Settings shell
     // once the shell's declaration is on the ledger (slots.inject waits for

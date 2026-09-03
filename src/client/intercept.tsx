@@ -6,11 +6,12 @@
  * deliverables entry; when nothing was produced the selector returns null
  * and the original row renders unchanged.
  */
-import { IconCodeOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCodeOutline16, IconDataOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '../context-types.ts'
 import { firstLeaf, revealPaths, togglePanel, type SidebarStore } from './state.ts'
 import { t } from './locales.ts'
 import { resolveSidebarPath, selectProducedFiles } from './produced-files.ts'
+import { selectLineage } from './lineage/lineage-turn-data.ts'
 import { wrapOpenWorkspacePath, type OpenWorkspacePathService } from './openpath-intercept.ts'
 import css from './sidebar.module.css'
 
@@ -71,14 +72,17 @@ export function revealInExplorer(
 
 /** The intercepted produced-files row (visual twin of the deliverables chips). */
 export function SidebarProducedFiles(props: {
-  matched: readonly string[]
+  matched: { files: readonly string[] | null; lineage: boolean }
   openInSidebar: (path: string) => void
   /** Reveal the produced files in the explorer ("Show in folder" twin). */
   onShowInFolder: (files: readonly string[]) => void
+  /** Open the lineage tab (lineage chip click). */
+  openLineage?: () => void
 }) {
-  const { matched, openInSidebar, onShowInFolder } = props
-  const shown = matched.slice(0, 6)
-  const hidden = matched.length - shown.length
+  const { matched, openInSidebar, onShowInFolder, openLineage } = props
+  const files = matched.files ?? []
+  const shown = files.slice(0, 6)
+  const hidden = files.length - shown.length
   return (
     <div className={css.producedRow}>
       <span className={css.producedLabel}>{t('produced')}</span>
@@ -98,13 +102,14 @@ export function SidebarProducedFiles(props: {
           </button>
         )
       })}
+      {matched.lineage && openLineage !== undefined && (         <button           type="button"           className={css.producedChip}           title={t('lineage')}           onClick={() => { openLineage() }}         >           <IconDataOutline16 size={12} />           <span>{t('lineage')}</span>         </button>       )}
       {hidden > 0 && <span className={css.producedMore}>+{hidden}</span>}
       {hidden > 0 && (
         <button
           type="button"
           className={css.producedMore}
           style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
-          onClick={() => { onShowInFolder(matched) }}
+          onClick={() => { onShowInFolder(files) }}
         >
           {t('showInFolder')}
         </button>
@@ -139,13 +144,18 @@ export function registerTurnTailInterception(ctx: Context, store: SidebarStore):
       if (store.getPrefs().tabsEnabled['editor'] === false) return null
       const matched = selectProducedFiles(owner)
       if (matched !== null) lastProduced = matched
-      return matched
+      const lineage = selectLineage(owner as Parameters<typeof selectLineage>[0])
+      if (matched === null && !lineage) return null
+      return { files: matched, lineage }
     },
     priority: -1,
     registrant: 'dsh-better-sidebar',
     inject: (sessionId: string) => ({
       openInSidebar: (path: string) => { openSidebarFile(ctx, store, sessionId, path) },
       onShowInFolder: (files: readonly string[]) => { revealInExplorer(ctx, store, sessionId, files) },
+        openLineage: () => {
+          ctx.get('betterSidebar')?.openTab({ type: 'lineage' }, { sessionId })
+        },
     }),
   }, SidebarProducedFiles))
 }
