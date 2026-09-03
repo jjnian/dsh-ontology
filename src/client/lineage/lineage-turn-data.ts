@@ -41,13 +41,13 @@ interface TurnTailOwnerLike {
 }
 
 export function selectLineage(owner: TurnTailOwnerLike): boolean {
-  const data = owner.turn.data.get('lineage') as LineageTurnData | undefined
+  const data = owner.turn?.data?.get('lineage') as LineageTurnData | undefined
   return data?.hasLineage === true
 }
 
 /** Turn-local lineage_graph call accumulator; it publishes no view Node. */
 export const lineageDefinition: ConversationNodeDefinition<LineageState> = {
-  kind: 'lineage-deliverables',
+  kind: 'lineage',
   match: (event) => {
     if (event.type === 'turn/start') return { id: String(event.data.turn), role: 'start' }
     if (event.type === 'tool/call') return { id: String((event.data as { turn: number }).turn), role: 'update' }

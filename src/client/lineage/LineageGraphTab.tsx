@@ -124,7 +124,7 @@ export function LineageGraphTab(props: TabComponentProps) {
   const historyRef = useRef<string | null>(null)
 
   // Recompute ontology validation whenever the graph changes
-  useEffect(() => { setIssues(validateOntology(graph)) }, [graph])
+  useEffect(() => { setIssues(validateOntology(graph).filter((issue) => issue.severity === 'error')) }, [graph])
 
   /** Keep a bounded local edit stack so imports, review, and manual edits can be undone. */
   const graphHistorySkipRef = useRef(false)

@@ -149,14 +149,14 @@ describe('turn-tail interception registration (issue #15)', () => {
     const select = fake.registered[0]!.options.select as (owner: unknown) => unknown
 
     // Enabled (default): a produced turn claims the chain; an empty one declines.
-    expect(select(producedOwner(['a.ts', 'b.ts']))).toEqual(['a.ts', 'b.ts'])
+    expect(select(producedOwner(['a.ts', 'b.ts']))).toEqual({ files: ['a.ts', 'b.ts'], lineage: false })
     expect(select(emptyOwner())).toBeNull()
     // The engine Turn data path (the real owner currency: { turn, seq,
     // openFile }) claims through the deliverables record too.
     expect(select({
-      turn: { data: { get: (key: string) => key === 'deliverables' ? { produced: [{ seq: 1, path: 'a.ts' }] } : undefined } },
-      seq: 1,
-    })).toEqual(['a.ts'])
+        turn: { data: { get: (key: string) => key === 'deliverables' ? { produced: [{ seq: 1, path: 'a.ts' }] } : undefined } },
+        seq: 1,
+      })).toEqual({ files: ['a.ts'], lineage: false })
 
     // Editor tab disabled: even a produced turn falls back to the default
     // deliverables row (chips that cannot open must not be offered).
