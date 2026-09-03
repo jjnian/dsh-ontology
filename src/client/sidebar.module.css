@@ -1501,6 +1501,33 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
   color: var(--dsw-alias-label-primary);
 }
 
+.lineageMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lineageMetricItem {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 76%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 62%, transparent);
+}
+
+.lineageMetricLabel {
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.lineageMetricValue {
+  font: var(--dsw-font-xs-13);
+  color: var(--dsw-alias-label-primary);
+}
+
 .lineageDropdownWrap {
   flex: none;
   position: relative;

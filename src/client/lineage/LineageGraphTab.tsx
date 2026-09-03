@@ -54,6 +54,14 @@ const NODE_DETAIL_TABS: { id: NodeDetailTab; label: string }[] = [
   { id: 'source', label: '来源' },
 ]
 
+const SOURCE_LABELS: Record<string, string> = {
+  derived: '派生',
+  inferred: '推断',
+  manual: '人工',
+  preset: '预置',
+  llm: 'LLM联想',
+}
+
 /**
  * The built-in lineage tab: renders a lineage graph (nodes/edges) ported
  * from EIC-CC. Loads from a workspace JSON file (`{ nodes, edges }`) or from
@@ -1589,7 +1597,7 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
 }): ReactNode {
   const style = typeStyle(node.type)
   const source = SOURCE_COLORS[node.source || ''] ?? { bg: '#f1f5f9', color: '#64748b' }
-  const sourceLabel = node.source || '未知'
+  const sourceLabel = SOURCE_LABELS[node.source ?? ''] ?? node.source ?? '未记录'
   const [editing, setEditing] = useState(false)
   const [editLabel, setEditLabel] = useState(node.label)
   const [editLayer, setEditLayer] = useState<'class' | 'instance'>(nodeLayer(node))
@@ -1922,6 +1930,8 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
     'owner', 'sensitivity', 'version', 'tags', 'updatedAt',
   ])
   const otherProperties = properties.filter(([key]) => !knownKeys.has(key))
+  const displayProperties = otherProperties.filter(([, value]) =>
+    typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
   const ontologySections: { title: string; rows: [string, string][] }[] = []
 
   const semantic: [string, string][] = []
@@ -2068,7 +2078,7 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
       <div className={css.lineageDetailBody} style={detailTab === 'overview' || detailTab === 'mapping' ? undefined : { display: 'none' }}>
         {detailTab === 'overview' && (
         <div className={css.lineageDetailSection}>
-          <div className={css.lineageDetailLabel}>{t('lineageOntologyEditor')}</div>
+          <div className={css.lineageDetailLabel}>基本信息</div>
           {!editing ? (
             <>
               <div className={css.lineagePropertyRow}>
@@ -2080,12 +2090,12 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
                 <span className={css.lineagePropertyValue}>{style.label}</span>
               </div>
               <div className={css.lineagePropertyRow}>
-                <span className={css.lineagePropertyKey}>层级</span>
-                <span className={css.lineagePropertyValue}>{nodeLayer(node) === 'class' ? '类' : '实例'}</span>
-              </div>
-              <div className={css.lineagePropertyRow}>
                 <span className={css.lineagePropertyKey}>领域</span>
                 <span className={css.lineagePropertyValue}>{node.domain ?? '—'}</span>
+              </div>
+              <div className={css.lineagePropertyRow}>
+                <span className={css.lineagePropertyKey}>来源</span>
+                <span className={css.lineagePropertyValue}>{sourceLabel}</span>
               </div>
               <div className={css.lineagePropertyRow}>
                 <span className={css.lineagePropertyKey}>{t('lineageDetailDescription')}</span>
@@ -2159,7 +2169,7 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
 
         {detailTab === 'mapping' && (
         <div className={css.lineageDetailSection}>
-          <div className={css.lineageDetailLabel}>{t('lineageDatabaseMapping')}</div>
+          <div className={css.lineageDetailLabel}>新建数据库映射</div>
           <label className={css.lineageModalLabel}>
             <span>{t('databaseConnections')}</span>
             <select value={mappingConnectionId} onChange={(e) => void loadMappingConnection(e.target.value)}>
@@ -2232,16 +2242,19 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
           >
             {t('databaseSave')}
           </button>
-          {sourceBindings.length > 0 && (
-            <div className={css.lineageAssetErrors}>
-              {sourceBindings.map((binding, index) => (
-                <div key={index}>
-                  {String(binding.connectionName ?? binding.connectionId ?? '')} · {String(binding.database ?? '')} · {String(binding.objectName ?? '')}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
+        )}
+
+        {detailTab === 'mapping' && sourceBindings.length > 0 && (
+          <div className={css.lineageDetailSection}>
+            <div className={css.lineageDetailLabel}>已有映射</div>
+            {sourceBindingLabels.map((row) => (
+              <div key={row.id} className={css.lineageSourceRow}>
+                <span className={css.lineageSourceKind}>🗄️ 数据库</span>
+                <span className={css.lineageSourceValue}>{row.label}</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -2443,36 +2456,28 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
         {detailTab === 'overview' && (
           <div className={css.lineageDetailSection}>
             <div className={css.lineageDetailLabel}>删除影响</div>
-            <div className={css.lineagePropertyRow}>
-              <span className={css.lineagePropertyKey}>断开关系</span>
-              <span className={css.lineagePropertyValue}>{impact.removedEdges.length}</span>
+            <div className={css.lineageMetricGrid}>
+              <div className={css.lineageMetricItem}>
+                <span className={css.lineageMetricLabel}>断开关系</span>
+                <span className={css.lineageMetricValue}>{impact.removedEdges.length}</span>
+              </div>
+              <div className={css.lineageMetricItem}>
+                <span className={css.lineageMetricLabel}>孤立节点</span>
+                <span className={css.lineageMetricValue}>{impact.orphanedNodes.filter((id) => id !== node.id).length}</span>
+              </div>
+              <div className={css.lineageMetricItem}>
+                <span className={css.lineageMetricLabel}>上游影响</span>
+                <span className={css.lineageMetricValue}>{impact.upstreamNodes.length}</span>
+              </div>
+              <div className={css.lineageMetricItem}>
+                <span className={css.lineageMetricLabel}>下游影响</span>
+                <span className={css.lineageMetricValue}>{impact.downstreamNodes.length}</span>
+              </div>
+              <div className={css.lineageMetricItem}>
+                <span className={css.lineageMetricLabel}>剩余分量</span>
+                <span className={css.lineageMetricValue}>{impact.disconnectedComponents}</span>
+              </div>
             </div>
-            <div className={css.lineagePropertyRow}>
-              <span className={css.lineagePropertyKey}>孤立节点</span>
-              <span className={css.lineagePropertyValue}>{impact.orphanedNodes.filter((id) => id !== node.id).length}</span>
-            </div>
-            <div className={css.lineagePropertyRow}>
-              <span className={css.lineagePropertyKey}>上游影响</span>
-              <span className={css.lineagePropertyValue}>{impact.upstreamNodes.length}</span>
-            </div>
-            <div className={css.lineagePropertyRow}>
-              <span className={css.lineagePropertyKey}>下游影响</span>
-              <span className={css.lineagePropertyValue}>{impact.downstreamNodes.length}</span>
-            </div>
-            <div className={css.lineagePropertyRow}>
-              <span className={css.lineagePropertyKey}>剩余分量</span>
-              <span className={css.lineagePropertyValue}>{impact.disconnectedComponents}</span>
-            </div>
-          </div>
-        )}
-
-        {/* 证据 */}
-        {detailTab === 'overview' && evidenceTexts(node).length > 0 && (
-          <div className={css.lineageDetailSection}>
-            <div className={css.lineageDetailLabel}>{t('lineageDetailEvidence')}</div>
-            {evidenceTexts(node).map((evidence, index) => (
-              <div key={index} className={css.lineageDetailText}>{evidence}</div>
-            ))}
           </div>
         )}
 
@@ -2481,7 +2486,9 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
           <div className={css.lineageDetailSection}>
             <div className={css.lineageDetailLabel}>来源</div>
             {sourceBindingLabels.length === 0 && evidenceSources(node).length === 0 && (
-              <div className={css.lineageDetailText}>未记录来源</div>
+              <div className={css.lineageDetailText}>
+                当前节点没有结构化证据或数据库映射。生成血缘图时，文件、数据库和 LLM 推理来源会记录在这里。
+              </div>
             )}
             {sourceBindingLabels.map((row) => (
               <div key={row.id} className={css.lineageSourceRow}>
@@ -2498,16 +2505,19 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
           </div>
         )}
 
-        {/* 通用属性 */}
-        {detailTab === 'overview' && otherProperties.length > 0 && (
+        {/* 其他属性 */}
+        {detailTab === 'overview' && displayProperties.length > 0 && (
           <div className={css.lineageDetailSection}>
-            <div className={css.lineageDetailLabel}>{t('lineageDetailProperties')}</div>
-            {otherProperties.map(([key, value]) => (
+            <div className={css.lineageDetailLabel}>其他属性</div>
+            {displayProperties.slice(0, 8).map(([key, value]) => (
               <div key={key} className={css.lineagePropertyRow}>
                 <span className={css.lineagePropertyKey}>{key}</span>
                 <span className={css.lineagePropertyValue}>{String(value)}</span>
               </div>
             ))}
+            {displayProperties.length > 8 && (
+              <div className={css.lineageDetailText}>还有 {displayProperties.length - 8} 个属性</div>
+            )}
           </div>
         )}
       </div>
