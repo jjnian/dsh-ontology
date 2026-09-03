@@ -66,6 +66,25 @@ function historyLabel(entry: LineageHistoryEntry): string {
  * from EIC-CC. Loads from a workspace JSON file (`{ nodes, edges }`) or from
  * the built-in demo dataset, and opens a node detail panel on selection.
  */
+/** Grouped toolbar dropdown for the lineage tab. */
+function LineageDropdown(
+  props: { label: string; open: boolean; onToggle: () => void; children: ReactNode; primary?: boolean },
+): ReactNode {
+  return (
+    <div className={css.lineageDropdownWrap}>
+      <button
+        type="button"
+        className={props.primary === true ? css.lineagePrimaryButton : css.lineageToolbarButton}
+        onClick={props.onToggle}
+      >
+        {props.label}
+        <span className={css.lineageDropdownCaret}>{props.open ? '▴' : '▾'}</span>
+      </button>
+      {props.open && <div className={css.lineageDropdownMenu}>{props.children}</div>}
+    </div>
+  )
+}
+
 export function LineageGraphTab(props: TabComponentProps) {
   const { scope, visible } = props
   const [graph, setGraph] = useState<LineageGraphData>(DEMO_LINEAGE)
@@ -114,6 +133,7 @@ export function LineageGraphTab(props: TabComponentProps) {
   const [domainCollapsed, setDomainCollapsed] = useState(false)
   const [expandedDomains, setExpandedDomains] = useState<ReadonlySet<string>>(new Set())
   const [diffRevisionId, setDiffRevisionId] = useState('')
+  const [menuOpen, setMenuOpen] = useState<'none' | 'file' | 'generate' | 'edit'>('none')
 
   // Recompute ontology validation whenever the graph changes
   useEffect(() => { setIssues(validateOntology(graph)) }, [graph])
@@ -719,157 +739,130 @@ export function LineageGraphTab(props: TabComponentProps) {
             </option>
           ))}
         </select>
-        <button type="button" className={css.lineageToolbarButton} disabled={workspaceLoading} onClick={openNewWorkspace}>
-          新建
-        </button>
-        {revisions.length > 0 && (
-          <select
-            aria-label="血缘版本"
-            className={css.lineageSelect}
-            disabled={workspaceLoading}
-            value=""
-            onChange={(event) => { const id = event.target.value; if (id !== '') void restoreWorkspaceRevision(id) }}
-          >
-            <option value="">版本回滚</option>
-            {[...revisions].reverse().map((revision) => (
-              <option key={revision.id} value={revision.id}>
-                {revision.createdAt.replace('T', ' ').slice(0, 19)} · {revision.source} · {revision.nodes.length}N
-              </option>
-            ))}
-          </select>
-        )}
-        {revisions.length > 0 && (
-          <select
-            aria-label="版本对比"
-            className={css.lineageSelect}
-            value={diffRevisionId}
-            onChange={(event) => setDiffRevisionId(event.target.value)}
-          >
-            <option value="">版本对比</option>
-            {[...revisions].reverse().map((revision) => (
-              <option key={revision.id} value={revision.id}>
-                {revision.createdAt.replace('T', ' ').slice(0, 19)} · {revision.source}
-              </option>
-            ))}
-          </select>
-        )}
-        <button
-          type="button"
-          className={css.lineagePrimaryButton}
-          disabled={workspaceLoading}
-          onClick={() => {
-            if (workspaceId === '') setWorkspaceModal('save')
-            else void saveWorkspace(workspaceName.trim() !== '' ? workspaceName : '未命名血缘图')
-          }}
-        >
-          保存
-        </button>
-        <button
-          type="button"
-          className={css.lineageToolbarButton}
-          disabled={workspaceLoading || workspaceId === ''}
-          onClick={async () => {
-            if (workspaceId === '') return
-            await api.lineageWorkspaceDelete(scope, workspaceId)
-            await loadWorkspaceList(false)
-            setWorkspaceModal('closed')
-          }}
-        >
-          删图
-        </button>
-        <button type="button" className={css.lineageToolbarButton} onClick={loadDemo}>{t('lineageDemo')}</button>
-        <button type="button" className={css.lineageToolbarButton} disabled={chatLoading} onClick={() => void generateFromChat(false)}>
-          {chatLoading ? t('loading') : t('lineageGenerate')}
-        </button>
-        <button type="button" className={css.lineageToolbarButton} onClick={() => setAssetOpen(true)}>
-          {t('lineageAssetExtract')}
-        </button>
-        <button type="button" className={css.lineageToolbarButton} onClick={() => setReviewOpen(true)}>
-          审核队列{reviews.length > 0 ? ` · ${reviews.length}` : ''}
-        </button>
-        <button type="button" className={css.lineageToolbarButton} onClick={() => setAnalysisOpen((current) => !current)}>
-          血缘分析
-        </button>
-        <button
-          type="button"
-          className={css.lineageToolbarButton}
-          onClick={() => {
-            const next = !domainCollapsed
-            setDomainCollapsed(next)
-            if (next) setExpandedDomains(new Set())
-          }}
-        >
-          {domainCollapsed ? '展开领域' : '领域折叠'}
-        </button>
-        <button type="button" className={css.lineageToolbarButton} disabled={undoStack.length === 0} onClick={undoGraph}>
-          撤销
-        </button>
-        <button type="button" className={css.lineageToolbarButton} disabled={redoStack.length === 0} onClick={redoGraph}>
-          重做
-        </button>
-        <button type="button" className={css.lineageToolbarButton} disabled={instanceLoading} onClick={() => void openInstanceImport()}>
-          {t('lineageImportInstances')}
-        </button>
-
-        {history.length > 0 && (
-          <select
-            aria-label={t('lineageHistory')}
-            value={historySelected}
-            onChange={(e) => {
-              const id = e.target.value
-              setHistorySelected(id)
-              if (id === 'latest') {
-                setGraph(history[0]?.graph ?? DEMO_LINEAGE)
+        <LineageDropdown label="文件" open={menuOpen === 'file'} onToggle={() => setMenuOpen(menuOpen === 'file' ? 'none' : 'file')}>
+          <button type="button" className={css.lineageDropdownItem} disabled={workspaceLoading} onClick={() => { setMenuOpen('none'); openNewWorkspace() }}>新建工作区</button>
+          <button type="button" className={css.lineagePrimaryButton} disabled={workspaceLoading} onClick={() => { setMenuOpen('none'); if (workspaceId === '') setWorkspaceModal('save'); else void saveWorkspace(workspaceName.trim() !== '' ? workspaceName : '未命名血缘图') }}>保存</button>
+          <button type="button" className={css.lineageDropdownItem} disabled={workspaceLoading || workspaceId === ''} onClick={() => { setMenuOpen('none'); if (workspaceId !== '') { void api.lineageWorkspaceDelete(scope, workspaceId); void loadWorkspaceList(false); setWorkspaceModal('closed') } }}>删图</button>
+          <button type="button" className={css.lineageDropdownItem} onClick={() => { setMenuOpen('none'); loadDemo() }}>示例</button>
+          {revisions.length > 0 && (
+            <select
+              aria-label="血缘版本"
+              className={css.lineageSelect}
+              disabled={workspaceLoading}
+              value="."
+              onChange={(event) => { const id = event.target.value; if (id !== '.' && id !== '') { setMenuOpen('none'); void restoreWorkspaceRevision(id) } }}
+            >
+              <option value="." disabled>版本回滚</option>
+              {[...revisions].reverse().map((revision) => (
+                <option key={revision.id} value={revision.id}>
+                  {revision.createdAt.replace('T', ' ').slice(0, 19)} · {revision.source} · {revision.nodes.length}N
+                </option>
+              ))}
+            </select>
+          )}
+          {revisions.length > 0 && (
+            <select
+              aria-label="版本对比"
+              className={css.lineageSelect}
+              value={diffRevisionId}
+              onChange={(event) => { setDiffRevisionId(event.target.value); setMenuOpen('none') }}
+            >
+              <option value="">版本对比（无）</option>
+              {[...revisions].reverse().map((revision) => (
+                <option key={revision.id} value={revision.id}>
+                  {revision.createdAt.replace('T', ' ').slice(0, 19)} · {revision.source}
+                </option>
+              ))}
+            </select>
+          )}
+        </LineageDropdown>
+        <LineageDropdown label="生成" open={menuOpen === 'generate'} onToggle={() => setMenuOpen(menuOpen === 'generate' ? 'none' : 'generate')}>
+          <button type="button" className={css.lineageDropdownItem} disabled={chatLoading} onClick={() => { setMenuOpen('none'); void generateFromChat(false) }}>{chatLoading ? t('loading') : t('lineageGenerate')}</button>
+          <button type="button" className={css.lineageDropdownItem} onClick={() => { setMenuOpen('none'); setAssetOpen(true) }}>{t('lineageAssetExtract')}</button>
+          <button type="button" className={css.lineageDropdownItem} disabled={instanceLoading} onClick={() => { setMenuOpen('none'); void openInstanceImport() }}>{t('lineageImportInstances')}</button>
+          {history.length > 0 && (
+            <select
+              aria-label={t('lineageHistory')}
+              value={historySelected}
+              onChange={(e) => {
+                const id = e.target.value
+                setHistorySelected(id)
+                setMenuOpen('none')
+                if (id === 'latest') {
+                  setGraph(history[0]?.graph ?? DEMO_LINEAGE)
+                  setSelected(null)
+                  setSelectedEdge(null)
+                  setError(null)
+                  return
+                }
+                const entry = history.find((candidate) => candidate.id === id)
+                if (entry === undefined) return
+                setGraph(entry.graph)
                 setSelected(null)
                 setSelectedEdge(null)
                 setError(null)
-                return
-              }
-              const entry = history.find((candidate) => candidate.id === id)
-              if (entry === undefined) return
-              setGraph(entry.graph)
-              setSelected(null)
-              setSelectedEdge(null)
-              setError(null)
-            }}
-            className={css.lineageSelect}
-          >
-            <option value="latest">{t('lineageHistoryLatest')}</option>
-            {history.map((entry) => (
-              <option key={entry.id} value={entry.id}>{historyLabel(entry)}</option>
-            ))}
-          </select>
-        )}
-
+              }}
+              className={css.lineageSelect}
+            >
+              <option value="latest">{t('lineageHistoryLatest')}</option>
+              {history.map((entry) => (
+                <option key={entry.id} value={entry.id}>{historyLabel(entry)}</option>
+              ))}
+            </select>
+          )}
+        </LineageDropdown>
+        <LineageDropdown label="编辑" open={menuOpen === 'edit'} onToggle={() => setMenuOpen(menuOpen === 'edit' ? 'none' : 'edit')}>
+          <button type="button" className={css.lineageDropdownItem} disabled={domainCollapsed} onClick={() => { setMenuOpen('none'); setEditMode(editMode === 'addNode' ? 'none' : 'addNode'); setSelected(null); setSelectedEdge(null) }}>
+            {editMode === 'addNode' ? t('lineageCancelEdit') : t('lineageAddNode')}
+          </button>
+          <button type="button" className={css.lineageDropdownItem} disabled={domainCollapsed} onClick={() => { setMenuOpen('none'); setEditMode(editMode === 'connect' ? 'none' : 'connect'); setSelected(null); setSelectedEdge(null) }}>
+            {editMode === 'connect' ? t('lineageCancelEdit') : t('lineageConnect')}
+          </button>
+          <button type="button" className={css.lineageDropdownItem} disabled={domainCollapsed || (selected === null && selectedEdge === null)} onClick={() => { setMenuOpen('none'); deleteSelected() }}>
+            {t('lineageDelete')}
+          </button>
+          <button type="button" className={css.lineageDropdownItem} disabled={domainCollapsed} onClick={() => {
+            setMenuOpen('none')
+            const next = !domainCollapsed
+            setDomainCollapsed(next)
+            if (next) setExpandedDomains(new Set())
+          }}>
+            {domainCollapsed ? '展开领域' : '领域折叠'}
+          </button>
+          <button type="button" className={css.lineageDropdownItem} disabled={undoStack.length === 0} onClick={() => { setMenuOpen('none'); undoGraph() }}>撤销</button>
+          <button type="button" className={css.lineageDropdownItem} disabled={redoStack.length === 0} onClick={() => { setMenuOpen('none'); redoGraph() }}>重做</button>
+        </LineageDropdown>
         <span className={css.lineageHeaderSpacer} />
-
         <input
           className={css.lineageSearch}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('lineageSearchPlaceholder')}
         />
-        <button type="button" className={css.lineageToolbarButton}
-          disabled={domainCollapsed}
-          onClick={() => { setEditMode(editMode === 'addNode' ? 'none' : 'addNode'); setSelected(null); setSelectedEdge(null) }}
-        >
-          {editMode === 'addNode' ? t('lineageCancelEdit') : t('lineageAddNode')}
-        </button>
-        <button type="button" className={css.lineageToolbarButton}
-          disabled={domainCollapsed}
-          onClick={() => { setEditMode(editMode === 'connect' ? 'none' : 'connect'); setSelected(null); setSelectedEdge(null) }}
-        >
-          {editMode === 'connect' ? t('lineageCancelEdit') : t('lineageConnect')}
-        </button>
-        <button type="button" className={css.lineageToolbarButton} disabled={domainCollapsed || (selected === null && selectedEdge === null)} onClick={deleteSelected}>
-          {t('lineageDelete')}
-        </button>
         <button type="button" className={css.lineageIconButton} title={t('lineageZoomOut')} onClick={() => canvasRef.current?.zoomOut()}>−</button>
         <button type="button" className={css.lineageIconButton} title={t('lineageZoomIn')} onClick={() => canvasRef.current?.zoomIn()}>+</button>
         <button type="button" className={css.lineageToolbarButton} title={t('lineageFit')} onClick={() => canvasRef.current?.fit()}>{t('lineageFit')}</button>
       </div>
 
       <div className={css.editorBody} style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className={css.lineageFloatActions}>
+          <button
+            type="button"
+            className={css.lineageFloatButton}
+            onClick={() => setAnalysisOpen((current) => !current)}
+            title="血缘分析"
+          >
+            分析
+          </button>
+          <button
+            type="button"
+            className={css.lineageFloatButton}
+            onClick={() => setReviewOpen(true)}
+            title="审核队列"
+          >
+            审核{reviews.length > 0 ? ' · ' + reviews.length : ''}
+          </button>
+        </div>
         {versionDiff !== null && (
           <div
             className={css.lineageLegend}
