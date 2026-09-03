@@ -92,8 +92,7 @@ export function LineageGraphTab(props: TabComponentProps) {
   const [issues, setIssues] = useState<ValidationIssue[]>([])
   const [editMode, setEditMode] = useState<'none' | 'addNode' | 'connect'>('none')
   const [addLabel, setAddLabel] = useState('')
-  const [addLayer, setAddLayer] = useState<'class' | 'instance'>('class')
-  const [addType, setAddType] = useState('entity')
+  const [addType, setAddType] = useState('class')
   const [connectSource, setConnectSource] = useState<string | null>(null)
   const [connectTarget, setConnectTarget] = useState<string | null>(null)
   const [connectRelType, setConnectRelType] = useState('depends_on')
@@ -446,7 +445,7 @@ export function LineageGraphTab(props: TabComponentProps) {
     const count = graph.nodes.length
     const x = 80 + (count % 5) * 220
     const y = 40 + Math.floor(count / 5) * 100
-    const node: LineageNode = { id, label: addLabel.trim(), layer: addLayer, type: addType, x, y, source: 'manual' }
+    const node: LineageNode = { id, label: addLabel.trim(), layer: 'class', type: addType, x, y, source: 'manual' }
     setGraph((g) => ({ ...g, nodes: [...g.nodes, node] }))
     setAddLabel('')
     setEditMode('none')
@@ -974,16 +973,9 @@ export function LineageGraphTab(props: TabComponentProps) {
                   <input autoFocus value={addLabel} onChange={(e) => setAddLabel(e.target.value)} placeholder={t('lineageNodeNamePlaceholder')} onKeyDown={(e) => { if (e.key === 'Enter') confirmAddNode() }} />
                 </label>
                 <label className={css.lineageModalLabel}>
-                  <span>层级</span>
-                  <select value={addLayer} onChange={(e) => setAddLayer(e.target.value === 'instance' ? 'instance' : 'class')}>
-                    <option value="class">类</option>
-                    <option value="instance">实例</option>
-                  </select>
-                </label>
-                <label className={css.lineageModalLabel}>
                   <span>{t('lineageNodeType')}</span>
                   <select value={addType} onChange={(e) => setAddType(e.target.value)}>
-                    {ONTOLOGY_NODE_TYPES.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
+                    {ONTOLOGY_NODE_TYPES.filter((type) => type.layer === 'class-layer').map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
                   </select>
                 </label>
               </div>
@@ -1627,8 +1619,8 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
   useEffect(() => {
     setEditing(false)
     setEditLabel(node.label)
-    setEditLayer(nodeLayer(node))
-    setEditType(node.type)
+    setEditLayer('class')
+    setEditType(nodeLayer(node) === 'instance' ? 'class' : node.type)
     setEditDomain(node.domain ?? '')
     setEditDescription(typeof node.properties?.description === 'string' ? node.properties.description : '')
     setEditAliases(Array.isArray(node.properties?.aliases) ? (node.properties!.aliases as unknown[]).join(', ') : '')
@@ -2096,15 +2088,14 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
               </label>
               <label className={css.lineageModalLabel}>
                 <span>层级</span>
-                <select value={editLayer} onChange={(e) => setEditLayer(e.target.value === 'instance' ? 'instance' : 'class')}>
+                <select value="class" disabled>
                   <option value="class">类</option>
-                  <option value="instance">实例</option>
                 </select>
               </label>
               <label className={css.lineageModalLabel}>
                 <span>{t('lineageNodeType')}</span>
                 <select value={editType} onChange={(e) => setEditType(e.target.value)}>
-                  {ONTOLOGY_NODE_TYPES.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
+                  {ONTOLOGY_NODE_TYPES.filter((type) => type.layer === 'class-layer').map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
                 </select>
               </label>
               <label className={css.lineageModalLabel}>
