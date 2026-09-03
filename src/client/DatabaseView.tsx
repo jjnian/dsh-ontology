@@ -11,19 +11,13 @@ import {
   IconTrashOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TabComponentProps } from './service.ts'
-import { api, type DatabaseConnectionInput, type DatabaseQueryResult, type DbColumnInfo, type DbEngine, type DbIndexInfo, type DbKeyInfo, type DbObjectInfo, type DbObjectKind } from './api.ts'
+import { api, type DatabaseConnectionInput, type DatabaseQueryResult, type DatabaseSavedConnection, type DbColumnInfo, type DbEngine, type DbIndexInfo, type DbKeyInfo, type DbObjectInfo, type DbObjectKind } from './api.ts'
 import { t } from './locales.ts'
 import { DATABASE_COMPATIBILITY } from './lineage/database-compatibility.ts'
 import css from './sidebar.module.css'
 
-interface SavedConnection extends DatabaseConnectionInput {
-  id: string
-  name: string
-  engine: DbEngine
-}
+type SavedConnection = DatabaseSavedConnection
 
-const DB_SETTINGS_ID = 'database'
-const DB_CONNECTIONS_KEY = 'connections'
 
 const DATABASE_TYPES: { id: string; label: string; color: string; enabled: boolean; versions: string }[] = [
   { id: 'mysql', label: 'MySQL', color: '#5b8ff9', enabled: true, versions: '5.7 / 8.0+' },
@@ -71,31 +65,24 @@ function isConnection(value: unknown): value is SavedConnection {
 
 async function readSavedConnections(): Promise<SavedConnection[]> {
   try {
-    const view = await api.settingsGet()
-    const prefs = view.value as { pluginSettings?: unknown } | null | undefined
-    const pluginSettings = prefs?.pluginSettings
-    if (pluginSettings === null || typeof pluginSettings !== 'object') return []
-    const databaseBlob = (pluginSettings as Record<string, unknown>)[DB_SETTINGS_ID]
-    if (databaseBlob === null || typeof databaseBlob !== 'object') return []
-    const raw = (databaseBlob as Record<string, unknown>)[DB_CONNECTIONS_KEY]
-    return Array.isArray(raw) ? raw.filter(isConnection).map((c) => ({ ...c, engine: c.engine ?? 'mysql' })) : []
+    const { connections } = await api.dbConnectionsGet()
+    return connections
   } catch {
     return []
   }
 }
 
 async function writeSavedConnections(connections: SavedConnection[]): Promise<void> {
-  const view = await api.settingsGet()
-  const prefs = view.value as Record<string, unknown> | null | undefined
-  const pluginSettings = prefs?.pluginSettings !== null && typeof prefs?.pluginSettings === 'object'
-    ? { ...(prefs.pluginSettings as Record<string, Record<string, unknown>>) }
-    : {}
-  const databaseBlob = { ...(pluginSettings[DB_SETTINGS_ID] ?? {}) }
-  databaseBlob[DB_CONNECTIONS_KEY] = connections
-  pluginSettings[DB_SETTINGS_ID] = databaseBlob
-  await api.settingsUpdate({ pluginSettings }, view.revision)
+  const existing = await readSavedConnections()
+  const existingIds = new Set(existing.map((item) => item.id))
+  for (const connection of connections) {
+    if (!existingIds.has(connection.id)) await api.dbConnectionsSave(connection)
+  }
+  const targetIds = new Set(connections.map((item) => item.id))
+  for (const existing_ of existing) {
+    if (!targetIds.has(existing_.id)) await api.dbConnectionsDelete(existing_.id)
+  }
 }
-
 function EyeIcon({ off }: { off: boolean }): ReactNode {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -117,7 +104,7 @@ export function DatabaseView(_props: TabComponentProps): ReactNode {
   const [draftDatabases, setDraftDatabases] = useState<string[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [connOpen, setConnOpen] = useState(false)
-  const [serverVersion, setServerVersion] = useState('')
+  const [serverVersions, setServerVersions] = useState<Record<string, string>>({})
   const [databases, setDatabases] = useState<string[]>([])
   const [expandedDbs, setExpandedDbs] = useState<Set<string>>(new Set())
   
@@ -133,6 +120,7 @@ export function DatabaseView(_props: TabComponentProps): ReactNode {
   const [notice, setNotice] = useState<string | null>(null)
 
   const active = connections.find((item) => item.id === activeId) ?? null
+  const serverVersion = activeId !== null ? serverVersions[activeId] ?? '' : ''
 
   const refreshConnections = async (): Promise<void> => {
     setConnections(await readSavedConnections())
@@ -154,7 +142,6 @@ export function DatabaseView(_props: TabComponentProps): ReactNode {
   const disconnect = (): void => {
     setActiveId(null)
     setConnOpen(false)
-    setServerVersion('')
     setDatabases([])
     setExpandedDbs(new Set())
     setObjectsByDb({})
@@ -175,7 +162,7 @@ export function DatabaseView(_props: TabComponentProps): ReactNode {
       const tested = await api.dbTest(connectionInput(connection))
       const list = await api.dbDatabases(connectionInput(connection))
       setActiveId(connection.id)
-      setServerVersion(tested.serverVersion)
+      setServerVersions((prev) => ({ ...prev, [connection.id]: tested.serverVersion }))
       setDatabases(list.databases)
       setExpandedDbs(new Set())
       setObjectsByDb({})
@@ -293,6 +280,11 @@ export function DatabaseView(_props: TabComponentProps): ReactNode {
       await writeSavedConnections(saved)
       setConnections(saved)
       if (activeId === connection.id) disconnect()
+      setServerVersions((prev) => {
+        const next = { ...prev }
+        delete next[connection.id]
+        return next
+      })
       if (editing?.id === connection.id) setEditing(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('databaseLoadError'))
@@ -479,7 +471,9 @@ export function DatabaseView(_props: TabComponentProps): ReactNode {
                 <IconDatabaseOutline16 size={14} />
                 <span className={css.databaseConnName}>{connection.name}</span>
                 <span className={css.databaseConnMeta}>
-                  {activeId === connection.id ? `${databases.length}` : connection.host}
+                  {activeId === connection.id && serverVersions[connection.id] !== undefined
+                    ? `${serverVersions[connection.id]}`
+                    : activeId === connection.id ? `${databases.length}` : connection.host}
                 </span>
                 <span className={css.databaseRowActions}>
                   <button

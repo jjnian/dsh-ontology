@@ -6,6 +6,10 @@
  * Connections are created per request and closed immediately — the tab is an
  * inspection surface, not a long-lived connection pool.
  */
+import { readFile, rename, writeFile, mkdir } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import mysql from 'mysql2/promise'
 import pg from 'pg'
 import dmdb from 'dmdb'
@@ -597,10 +601,109 @@ function driverFor(engine: DbEngine): DbDriver {
   return mysqlDriver
 }
 
+
+
+/* ------------------------- Saved connection file ------------------------- */
+
+interface SavedConnectionRecord {
+  id: string
+  name: string
+  engine: DbEngine
+  host: string
+  port: number
+  user: string
+  password: string
+  database: string
+}
+
+function connectionsPath(): string {
+  return join(homedir(), '.dsh', 'database', 'connections.json')
+}
+
+function parseConnections(raw: string): SavedConnectionRecord[] {
+  try {
+    const value: unknown = JSON.parse(raw)
+    if (!Array.isArray(value)) return []
+    return value.filter((item): item is SavedConnectionRecord => {
+      const record = item as Record<string, unknown> | null
+      return record !== null && typeof record === 'object'
+        && typeof record.id === 'string'
+        && typeof record.name === 'string'
+        && typeof record.host === 'string'
+        && typeof record.port === 'number'
+        && typeof record.user === 'string'
+        && (record.password === undefined || typeof record.password === 'string')
+        && (record.database === undefined || typeof record.database === 'string')
+        && (record.engine === undefined || record.engine === 'mysql' || record.engine === 'postgresql' || record.engine === 'dm')
+    }).map((item) => ({
+      ...item,
+      engine: item.engine ?? 'mysql',
+      password: item.password ?? '',
+      database: item.database ?? '',
+    }))
+  } catch {
+    return []
+  }
+}
+
+async function readConnections(): Promise<SavedConnectionRecord[]> {
+  try {
+    return parseConnections(await readFile(connectionsPath(), 'utf8'))
+  } catch {
+    return []
+  }
+}
+
+async function writeConnections(connections: SavedConnectionRecord[]): Promise<void> {
+  const path = connectionsPath()
+  await mkdir(join(path, '..'), { recursive: true })
+  const temp = `E:\WorkCode\testdsh\DSH-better-sidebar\src\database-route.ts..tmp`
+  await writeFile(temp, `\n`, 'utf8')
+  await rename(temp, path)
+}
+
+function connectionFromPayload(payload: unknown): SavedConnectionRecord {
+  const engine = engineOf(payload)
+  const record = payload as Record<string, unknown> | null
+  return {
+    id: typeof record?.id === 'string' && record.id !== '' ? record.id : `conn-`,
+    name: requireString(payload, 'name'),
+    engine,
+    host: requireString(payload, 'host'),
+    port: typeof record?.port === 'number' && record.port > 0 && record.port <= 65535 ? record.port : defaultPort(engine),
+    user: requireString(payload, 'user'),
+    password: typeof record?.password === 'string' ? record.password : '',
+    database: typeof record?.database === 'string' ? record.database : '',
+  }
+}
+
 /* ------------------------------- Routes ---------------------------------- */
 
 export function buildDatabaseApi(): Record<string, (payload: unknown) => Promise<unknown>> {
   return {
+    'db.connections.get': async () => {
+      return { connections: await readConnections() }
+    },
+
+    'db.connections.save': async (payload) => {
+      const connection = connectionFromPayload(payload)
+      const connections = await readConnections()
+      const index = connections.findIndex((item) => item.id === connection.id)
+      if (index >= 0) connections[index] = connection
+      else connections.push(connection)
+      await writeConnections(connections)
+      return { connections }
+    },
+
+    'db.connections.delete': async (payload) => {
+      const id = requireString(payload, 'id')
+      const connections = await readConnections()
+      const next = connections.filter((item) => item.id !== id)
+      if (next.length === connections.length) throw new SidebarError('not-found', 'connection not found', 404)
+      await writeConnections(next)
+      return { connections: next }
+    },
+
     'db.test': async (payload) => {
       const input = connectionInputOf(payload, false)
       try {

@@ -26,6 +26,11 @@ export interface DatabaseConnectionInput {
   database?: string
 }
 
+export interface DatabaseSavedConnection extends DatabaseConnectionInput {
+  id: string
+  name: string
+}
+
 export interface DbObjectInfo {
   name: string
   type: string
@@ -324,6 +329,12 @@ export const api = {
     call<{ ok: true }>('lineage.workspace.delete', scopePayload(scope, { id })),
   lineageWorkspaceRestore: (scope: SessionScope, id: string, revisionId: string) =>
     call<{ workspace: LineageWorkspace }>('lineage.workspace.restore', scopePayload(scope, { id, revisionId })),
+  dbConnectionsGet: () =>
+    call<{ connections: DatabaseSavedConnection[] }>('db.connections.get', {}),
+  dbConnectionsSave: (connection: DatabaseSavedConnection) =>
+    call<{ connections: DatabaseSavedConnection[] }>('db.connections.save', { ...connection }),
+  dbConnectionsDelete: (id: string) =>
+    call<{ connections: DatabaseSavedConnection[] }>('db.connections.delete', { id }),
   dbTest: (connection: DatabaseConnectionInput) =>
     call<{ ok: true; serverVersion: string }>('db.test', databasePayload(connection)),
   dbDatabases: (connection: DatabaseConnectionInput) =>

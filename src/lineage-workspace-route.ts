@@ -5,6 +5,7 @@
  * users can inspect or back it up without a database service.
  */
 import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { SidebarError, requireString } from './wire.ts'
