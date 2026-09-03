@@ -1915,6 +1915,8 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
     .filter((edge) => edge.to === node.id)
     .map((edge) => ({ edge, neighbor: nodeById.get(edge.from) }))
     .filter((item): item is { edge: LineageEdge; neighbor: LineageNode } => item.neighbor !== undefined)
+  const attributeRelations = incoming.filter((item) => item.edge.rel_type === 'attribute_of')
+  const structuralIncoming = incoming.filter((item) => item.edge.rel_type !== 'attribute_of')
 
   // Ontology-aware property grouping: pull known semantic/governance/technical
   // fields from the properties blob into labeled sections; remaining keys go
@@ -2097,9 +2099,13 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
                 <span className={css.lineagePropertyKey}>来源</span>
                 <span className={css.lineagePropertyValue}>{sourceLabel}</span>
               </div>
-              <div className={css.lineagePropertyRow}>
-                <span className={css.lineagePropertyKey}>{t('lineageDetailDescription')}</span>
-                <span className={css.lineagePropertyValue}>{typeof node.properties?.description === 'string' ? node.properties.description : '—'}</span>
+              <div className={css.lineageDetailDescription}>
+                <div className={css.lineageDetailLabel}>描述</div>
+                <div className={css.lineageDetailText}>
+                  {typeof node.properties?.description === 'string' && node.properties.description !== ''
+                    ? node.properties.description
+                    : '—'}
+                </div>
               </div>
               <button type="button" className={css.lineageToolbarButton} onClick={() => setEditing(true)}>{t('edit')}</button>
             </>
@@ -2259,14 +2265,6 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
       </div>
 
       <div ref={detailBodyRef} className={css.lineageDetailBody} style={detailTab === 'mapping' ? { display: 'none' } : undefined}>
-        {/* 含义（description） */}
-        {detailTab === 'overview' && prop('description') !== undefined && (
-          <div className={css.lineageDetailDescription}>
-            <div className={css.lineageDetailLabel}>{t('lineageDetailDescription')}</div>
-            <div className={css.lineageDetailText}>{prop('description')}</div>
-          </div>
-        )}
-
         {/* 本体推理 */}
         {detailTab === 'inference' && (inheritanceChain.length > 0 || equivalentClasses.length > 0) && (
           <div className={css.lineageDetailSection}>
@@ -2435,14 +2433,39 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
         {/* 上下节点 */}
         {detailTab === 'overview' && (
         <div className={css.lineageDetailSection}>
+          <div className={css.lineageDetailLabel}>属性</div>
+          {attributeRelations.length === 0 && (
+            <div className={css.lineageDetailText}>暂无属性</div>
+          )}
+          {attributeRelations.map(({ edge, neighbor }) => (
+            <button
+              key={`attribute-${edge.id}-${neighbor.id}`}
+              type="button"
+              className={css.lineageRelatedNode}
+              onClick={() => onSelectNode(neighbor)}
+            >
+              <span className={css.lineageRelatedMarker} style={{ background: typeStyle(neighbor.type).color }} />
+              <span className={css.lineageRelatedNodeName}>{neighbor.label}</span>
+              <span className={css.lineageRelatedNodeType}>{typeStyle(neighbor.type).label}</span>
+              <span className={css.lineageRelationType}>
+                {[neighbor.properties?.dataType, neighbor.properties?.required === true ? '必填' : '', neighbor.properties?.unique === true ? '唯一' : '']
+                  .filter(Boolean)
+                  .join(' · ') || '—'}
+              </span>
+            </button>
+          ))}
+        </div>
+        )}
+        {detailTab === 'overview' && (
+        <div className={css.lineageDetailSection}>
           <div className={css.lineageDetailLabel}>{t('lineageNodeRelated')}</div>
-          {incoming.length === 0 && outgoing.length === 0 && (
+          {structuralIncoming.length === 0 && outgoing.length === 0 && (
             <div className={css.lineageDetailText}>—</div>
           )}
-          {incoming.length > 0 && (
+          {structuralIncoming.length > 0 && (
             <div className={css.lineageRelationGroup}>
-              <div className={css.lineageRelationGroupLabel}>{t('lineageNodeIncoming')} <span className={css.lineageRelationCount}>{incoming.length}</span></div>
-              {incoming.map(({ edge, neighbor }) => relatedRow(edge, neighbor, 'in'))}
+              <div className={css.lineageRelationGroupLabel}>{t('lineageNodeIncoming')} <span className={css.lineageRelationCount}>{structuralIncoming.length}</span></div>
+              {structuralIncoming.map(({ edge, neighbor }) => relatedRow(edge, neighbor, 'in'))}
             </div>
           )}
           {outgoing.length > 0 && (
