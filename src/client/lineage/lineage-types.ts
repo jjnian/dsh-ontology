@@ -79,6 +79,66 @@ export function evidenceTexts(item: { evidence?: string; evidences?: LineageEvid
   return [...new Set(texts)]
 }
 
+/** A structured source provenance row for the node/edge detail panel. */
+export interface LineageEvidenceSource {
+  id: string
+  icon: string
+  kind: string
+  label: string
+  title?: string
+}
+
+/** Turn legacy text and structured evidences into human-readable source rows. */
+export function evidenceSources(item: { evidence?: string; evidences?: LineageEvidence[] }): LineageEvidenceSource[] {
+  const rows = new Map<string, LineageEvidenceSource>()
+  const basename = (path: string): string => path.split(/[\\/]/).pop() ?? path
+
+  for (const evidence of item.evidences ?? []) {
+    const summary = evidence.summary || evidence.detail || ''
+    const title = evidence.detail ?? summary
+    if (evidence.type === 'file') {
+      const label = evidence.sourcePath !== undefined && evidence.sourcePath !== ''
+        ? basename(evidence.sourcePath)
+        : summary
+      if (label !== '') rows.set(`file:${evidence.id}`, { id: `file:${evidence.id}`, icon: '📄', kind: '文件', label, title: evidence.sourcePath ?? title })
+      continue
+    }
+    if (evidence.type === 'database' || evidence.type === 'ddl' || evidence.type === 'sql') {
+      const label = evidence.database !== undefined && evidence.database !== '' && evidence.objectName !== undefined && evidence.objectName !== ''
+        ? `${evidence.database}.${evidence.objectName}`
+        : evidence.database ?? evidence.objectName ?? evidence.connectionId ?? basename(evidence.sourcePath ?? '')
+      if (label !== '') rows.set(`db:${evidence.id}`, { id: `db:${evidence.id}`, icon: '🗄️', kind: '数据库', label, title })
+      continue
+    }
+    if (evidence.type === 'llm') {
+      rows.set(`llm:${evidence.id}`, { id: `llm:${evidence.id}`, icon: '✨', kind: 'LLM', label: 'LLM联想', title })
+      continue
+    }
+    if (evidence.type === 'manual') {
+      rows.set(`manual:${evidence.id}`, { id: `manual:${evidence.id}`, icon: '✍️', kind: '手动', label: '手动来源', title })
+      continue
+    }
+    if (evidence.type === 'data-check') {
+      rows.set(`check:${evidence.id}`, { id: `check:${evidence.id}`, icon: '✅', kind: '校验', label: summary || '数据校验', title })
+      continue
+    }
+    if (summary !== '') {
+      rows.set(`${evidence.type}:${evidence.id}`, {
+        id: `${evidence.type}:${evidence.id}`,
+        icon: '🔗',
+        kind: evidence.type,
+        label: summary,
+        title,
+      })
+    }
+  }
+
+  if (item.evidence !== undefined && item.evidence !== '') {
+    rows.set('legacy', { id: 'legacy', icon: '🔗', kind: '佐证', label: item.evidence })
+  }
+  return [...rows.values()]
+}
+
 /** Merge evidence without losing legacy strings or duplicate-checked sources. */
 export function mergeEvidence<
   T extends { evidence?: string; evidences?: LineageEvidence[] },

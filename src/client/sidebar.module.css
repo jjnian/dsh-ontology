@@ -1483,6 +1483,24 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
   text-overflow: ellipsis;
 }
 
+.lineageSourceRow {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  font: var(--dsw-font-xxs-12);
+}
+
+.lineageSourceKind {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.lineageSourceValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--dsw-alias-label-primary);
+}
+
 .lineageDropdownWrap {
   flex: none;
   position: relative;

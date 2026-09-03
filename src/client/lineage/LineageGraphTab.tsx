@@ -11,6 +11,7 @@ import {
   type LineageNode,
   type LineageWorkspaceSummary,
   evidenceTexts,
+  evidenceSources,
   mergeEvidence,
 } from './lineage-types.ts'
 import { typeStyle } from './graph-style.ts'
@@ -44,12 +45,13 @@ const SOURCE_COLORS: Record<string, { bg: string; color: string }> = {
   preset:   { bg: '#f1f5f9', color: '#475569' },
 }
 
-type NodeDetailTab = 'overview' | 'inference' | 'mapping'
+type NodeDetailTab = 'overview' | 'inference' | 'mapping' | 'source'
 
 const NODE_DETAIL_TABS: { id: NodeDetailTab; label: string }[] = [
   { id: 'overview', label: '概览' },
   { id: 'inference', label: '推理' },
   { id: 'mapping', label: '映射' },
+  { id: 'source', label: '来源' },
 ]
 
 /**
@@ -2001,6 +2003,17 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
   const sourceBindings = Array.isArray(node.properties?.sourceBindings)
     ? node.properties!.sourceBindings as Array<Record<string, unknown>>
     : []
+  const sourceBindingLabels = sourceBindings.map((binding, index) => {
+    const database = typeof binding.database === 'string' ? binding.database : ''
+    const objectName = typeof binding.objectName === 'string' ? binding.objectName : ''
+    const connection = typeof binding.connectionName === 'string'
+      ? binding.connectionName
+      : typeof binding.connectionId === 'string' ? binding.connectionId : ''
+    return {
+      id: `binding:${index}`,
+      label: [connection, database, objectName].filter(Boolean).join(' · ') || '未命名数据源',
+    }
+  })
 
   const relatedRow = (edge: LineageEdge, neighbor: LineageNode, direction: 'in' | 'out'): ReactNode => (
     <button
@@ -2052,7 +2065,7 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
       </div>
 
       {/* 本体与数据源映射设置 */}
-      <div className={css.lineageDetailBody} style={detailTab === 'inference' ? { display: 'none' } : undefined}>
+      <div className={css.lineageDetailBody} style={detailTab === 'overview' || detailTab === 'mapping' ? undefined : { display: 'none' }}>
         {detailTab === 'overview' && (
         <div className={css.lineageDetailSection}>
           <div className={css.lineageDetailLabel}>{t('lineageOntologyEditor')}</div>
@@ -2463,6 +2476,28 @@ function NodeDetailPanel({ node, graph, onSelectNode, onClose, onUpdateNode }: {
           </div>
         )}
 
+        {/* 来源 */}
+        {detailTab === 'source' && (
+          <div className={css.lineageDetailSection}>
+            <div className={css.lineageDetailLabel}>来源</div>
+            {sourceBindingLabels.length === 0 && evidenceSources(node).length === 0 && (
+              <div className={css.lineageDetailText}>未记录来源</div>
+            )}
+            {sourceBindingLabels.map((row) => (
+              <div key={row.id} className={css.lineageSourceRow}>
+                <span className={css.lineageSourceKind}>🗄️ 数据库</span>
+                <span className={css.lineageSourceValue}>{row.label}</span>
+              </div>
+            ))}
+            {evidenceSources(node).map((row) => (
+              <div key={row.id} className={css.lineageSourceRow} title={row.title}>
+                <span className={css.lineageSourceKind}>{row.icon} {row.kind}</span>
+                <span className={css.lineageSourceValue}>{row.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* 通用属性 */}
         {detailTab === 'overview' && otherProperties.length > 0 && (
           <div className={css.lineageDetailSection}>
@@ -2558,6 +2593,19 @@ function EdgeDetailPanel({ edge, fromLabel, toLabel, onClose, onConfirm, onRejec
           {relationDef(edge.rel_type) !== undefined && (
             <div className={css.lineageDetailText}>{relationDef(edge.rel_type)?.description}</div>
           )}
+        </div>
+
+        <div className={css.lineageDetailSection}>
+          <div className={css.lineageDetailLabel}>来源</div>
+          {evidenceSources(edge).length === 0 && (
+            <div className={css.lineageDetailText}>未记录来源</div>
+          )}
+          {evidenceSources(edge).map((row) => (
+            <div key={row.id} className={css.lineageSourceRow} title={row.title}>
+              <span className={css.lineageSourceKind}>{row.icon} {row.kind}</span>
+              <span className={css.lineageSourceValue}>{row.label}</span>
+            </div>
+          ))}
         </div>
 
         {evidenceTexts(edge).length > 0 && (
