@@ -14,7 +14,7 @@ function textRender(fn: (v: { name?: string; nodeCount: number; edgeCount: numbe
 function currentLineageGraph(ctx: Context, exec: { agent?: { session?: { id?: string } } }): LineageGraph | null {
   const sessionId = exec.agent?.session?.id
   if (typeof sessionId !== 'string' || sessionId === '') return null
-  const events = ctx.sessions.get(sessionId)?.events
+  const events = ctx.sessions.get(sessionId)?.snapshotEvents()
   return events === undefined ? null : extractLineageGraph(events)
 }
 

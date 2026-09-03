@@ -672,17 +672,17 @@ function buildApi(
     // fork APIs cannot express.
     'lineage.graph': async (payload) => {
       const sessionId = requireString(payload, 'sessionId')
-      const events = ctx.sessions.get(sessionId)?.events
+      const events = ctx.sessions.get(sessionId)?.snapshotEvents()
       return { graph: events === undefined ? null : extractLineageGraph(events) }
     },
     'lineage.history': async (payload) => {
       const sessionId = requireString(payload, 'sessionId')
-      const events = ctx.sessions.get(sessionId)?.events
+      const events = ctx.sessions.get(sessionId)?.snapshotEvents()
       return { history: events === undefined ? [] : extractLineageHistory(events) }
     },
     'lineage.patch': async (payload) => {
       const sessionId = requireString(payload, 'sessionId')
-      const events = ctx.sessions.get(sessionId)?.events
+      const events = ctx.sessions.get(sessionId)?.snapshotEvents()
       return { patch: events === undefined ? null : extractLineagePatch(events) }
     },
     'lineage.assets': async (payload) => {
