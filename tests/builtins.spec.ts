@@ -1,5 +1,5 @@
 /**
- * Built-in registration tests: the plugin registers 7 tabs and 6 file
+ * Built-in registration tests: the plugin registers 9 tabs and 6 file
  * viewers through the same service external plugins use (dogfooding);
  * the catch-all `code` viewer, the NUL-sniffing `binary-download` viewer,
  * and the html sandbox settings pin the registry's behavior. (Office
@@ -27,10 +27,10 @@ function setup(options: BuiltinTabOptions = {}): { service: ReturnType<typeof cr
 }
 
 describe('built-in tab registrations', () => {
-  it('registers the 7 built-in tabs', () => {
+  it('registers the 9 built-in tabs', () => {
     const { service } = setup()
     expect(service.getTabs().map(t => t.id).sort()).toEqual(
-      ['browser', 'diff', 'editor', 'git', 'sidechat', 'subagent', 'terminal'],
+      ['browser', 'database', 'diff', 'editor', 'git', 'lineage', 'sidechat', 'subagent', 'terminal'],
     )
   })
 
@@ -44,7 +44,7 @@ describe('built-in tab registrations', () => {
 
   it('single-instance tabs use the single sugar', () => {
     const { service } = setup()
-    for (const id of ['git', 'subagent']) {
+    for (const id of ['git', 'subagent', 'lineage', 'database']) {
       expect(service.getTab(id)?.single).toBe(true)
     }
   })

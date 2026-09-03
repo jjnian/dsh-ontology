@@ -1294,6 +1294,1033 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
   border-color: var(--dsw-alias-border-l2);
 }
 
+/* ── Lineage graph ────────────────────────────────────────────────────── */
+
+/* The lineage toolbar keeps its controls compact and groups the source
+   actions on the left and view/search actions on the right. All chrome rides
+   DSH semantic tokens so skins continue to apply. */
+.lineageHeader {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 72%, transparent);
+  background: linear-gradient(180deg, var(--dsw-alias-bg-layer-2), var(--dsw-alias-bg-layer-1));
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
+}
+
+.lineageHeaderSpacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+.lineageToolbarButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  cursor: pointer;
+  transition:
+    background var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    border-color var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    transform var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.lineageToolbarButton:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-color: var(--dsw-alias-border-l2);
+  box-shadow: 0 4px 12px rgb(15 23 42 / 0.06);
+}
+
+.lineageToolbarButton:active:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-active);
+  transform: scale(0.97);
+}
+
+.lineageToolbarButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.lineageIconButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    border-color var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    transform var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.lineageIconButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  border-color: var(--dsw-alias-border-l2);
+}
+
+.lineageIconButton:active {
+  background: var(--dsw-alias-interactive-bg-active);
+  transform: scale(0.95);
+}
+
+.lineageSelect {
+  flex: none;
+  box-sizing: border-box;
+  height: 32px;
+  max-width: 240px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  cursor: pointer;
+}
+
+.lineageSelect:hover {
+  border-color: var(--dsw-alias-border-l2);
+}
+
+.lineageSearch {
+  flex: 1 1 150px;
+  min-width: 120px;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+}
+
+.lineageSearch::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.lineageSearch:focus {
+  outline: none;
+  border-color: var(--dsw-alias-border-l2);
+  box-shadow: 0 0 0 3px rgb(79 70 229 / 0.10);
+}
+
+/* The graph legend is an informational overlay pinned to the canvas'
+   top-right corner. It stays non-interactive so pan/zoom gestures pass
+   through to the graph underneath. */
+.lineageLegend {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 204px;
+  max-width: calc(100% - 24px);
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 14px;
+  background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.92));
+  box-shadow: var(--dsw-shadow-lv2);
+  backdrop-filter: saturate(180%) blur(14px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.lineageLegendTitle {
+  margin-bottom: 8px;
+  font: var(--dsw-font-xxs-strong-12);
+  color: var(--dsw-alias-label-primary);
+}
+
+.lineageLegendGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.lineageLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.lineageLegendIcon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.lineageLegendDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 0%, transparent);
+}
+
+/* Edge hit-area: selection is shown by the line color itself, so the
+   browser's default focus outline (a black box around the path) must not
+   appear on click; keyboard focus keeps a visible ring. */
+.lineageEdgeHit:focus {
+  outline: none;
+}
+
+.lineageEdgeHit:focus-visible {
+  outline: 2px solid var(--dsw-alias-interactive-bg, #2563eb);
+  outline-offset: 2px;
+}
+
+/* Node detail: a bottom sheet instead of a right-side popover. It uses
+   rounded top corners and a blurred, elevated surface while staying inside
+   the graph viewport. */
+.lineageDetail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 58%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 18px 18px 0 0;
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-shadow-lv3);
+  backdrop-filter: saturate(180%) blur(20px);
+  z-index: 20;
+  animation: dsh-lineage-detail-in var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+/* The bottom sheet is resizable by dragging this top handle vertically. */
+.lineageDetailHandle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.lineageDetailHandleBar {
+  width: 48px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--dsw-alias-border-l2);
+  transition: background var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.lineageDetailHandle:hover .lineageDetailHandleBar {
+  background: var(--dsw-alias-border-l3);
+}
+
+.lineageDetailHeader {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
+.lineageDetailTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--dsw-font-xs-strong-13);
+  color: var(--dsw-alias-label-primary);
+}
+
+.lineageDetailTitleWrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lineageDetailSubtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.lineageDetailClose {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  transition:
+    background var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.lineageDetailTabs {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
+.lineageDetailTab,
+.lineageDetailTabActive {
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xxs-12);
+  cursor: pointer;
+  transition:
+    background var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    box-shadow var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.lineageDetailTab:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.lineageDetailTabActive,
+.lineageDetailTabActive:hover {
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
+}
+
+.lineageDetailClose:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.lineageDetailBody {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lineageDetailBody + .lineageDetailBody {
+  flex: 1;
+  padding-top: 0;
+}
+
+.lineageDetailBody:not(:last-child) {
+  flex: none;
+  overflow: visible;
+  padding-bottom: 2px;
+}
+
+.lineageDetailBadges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lineageDetailDescription {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.lineageDetailSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 72%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 72%, transparent);
+}
+
+.lineageBadgeSecondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font: var(--dsw-font-xxxs-11);
+  font-weight: 500;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.lineageRelationCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font: var(--dsw-font-xxxs-11);
+  font-weight: 600;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.lineageInheritanceChain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.lineageInheritanceLabel {
+  flex: none;
+  font: var(--dsw-font-xxxs-11);
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.lineageParentAttributes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.lineageParentAttribute {
+  display: inline-flex;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font: var(--dsw-font-xxxs-11);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+
+.lineageModalBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.lineageModal {
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  max-width: 340px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2, #ffffff);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.15);
+}
+
+.lineageModalTitle {
+  padding: 10px 14px 6px;
+  font: var(--dsw-font-xs-strong-13);
+  color: var(--dsw-alias-label-primary);
+}
+
+.lineageModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 14px 10px;
+}
+
+.lineageModalLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lineageModalLabel > span {
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.lineageModalLabel > input,
+.lineageModalLabel > select {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  outline: none;
+}
+
+.lineageModalLabel > input:focus,
+.lineageModalLabel > select:focus {
+  border-color: var(--dsw-alias-interactive-bg-active, #2563eb);
+}
+
+.lineageModalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 14px 12px;
+}
+
+.lineageModalList {
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.lineageModalRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-primary);
+}
+
+.lineageModalRow > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineageModalHint {
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.lineageAssetColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.lineageAssetPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lineageAssetList {
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.lineageAssetRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-primary);
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
+.lineageAssetRow:last-child {
+  border-bottom: none;
+}
+
+.lineageAssetRow > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineageAssetCandidate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lineageAssetCandidate small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.lineageAssetActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.lineageAssetErrors {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #dc2626;
+  font: var(--dsw-font-xxs-12);
+}
+
+.lineageConnectPreview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.lineageConnectNode {
+  font: var(--dsw-font-xxs-12);
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.lineageConnectArrow {
+  font: var(--dsw-font-xs-13);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.lineageConnectHint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-secondary);
+  pointer-events: none;
+  z-index: 15;
+}
+
+.lineagePrimaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #ffffff;
+  font: var(--dsw-font-xxs-12);
+  cursor: pointer;
+}
+
+.lineagePrimaryButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.lineageValidationBanner {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.lineageValidationError,
+.lineageValidationWarning {
+  padding: 9px 12px;
+  border-radius: 12px;
+  box-shadow: 0 8px 22px rgb(15 23 42 / 0.07);
+  font: var(--dsw-font-xxs-12);
+  pointer-events: auto;
+}
+
+.lineageValidationError {
+  background: rgb(254 242 242 / 0.92);
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.lineageValidationWarning {
+  background: rgb(255 251 235 / 0.92);
+  color: #d97706;
+  border: 1px solid #fde68a;
+}.lineageBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font: var(--dsw-font-xxxs-11);
+  font-weight: 500;
+}
+
+.lineageRelationGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lineageRelationGroup + .lineageRelationGroup {
+  margin-top: 10px;
+}
+
+.lineageRelationGroupLabel {
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.lineageRelatedNode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 82%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 82%, transparent);
+  color: var(--dsw-alias-label-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.lineageRelatedNode:hover {
+  border-color: color-mix(in srgb, var(--dsw-alias-interactive-bg) 28%, transparent);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.lineageRelatedMarker {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.lineageRelatedNodeType {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xxxs-11);
+}
+
+.lineageRelationDirection {
+  flex: none;
+  width: 14px;
+  text-align: center;
+  color: var(--dsw-alias-label-tertiary);
+  font: var(--dsw-font-xxs-12);
+}
+
+.lineageRelatedNodeName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-primary);
+}
+
+.lineageRelationType {
+  flex: none;
+  max-width: 44%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* ── Database explorer ─────────────────────────────────────────────────── */
+
+.databaseHeader {
+  flex-wrap: wrap;
+}
+
+.databaseSelect {
+  flex: none;
+  box-sizing: border-box;
+  height: 30px;
+  max-width: 220px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  cursor: pointer;
+}
+
+.databaseForm {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
+.databaseField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.databaseConnectedBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
+.databaseConnectionName {
+  font: var(--dsw-font-xxs-strong-12);
+  color: var(--dsw-alias-label-primary);
+}
+
+.databaseServerVersion {
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseWorkbench {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.databaseTables {
+  flex: none;
+  width: 190px;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+  border-right: 1px solid var(--dsw-alias-border-l1);
+}
+
+.databaseSectionTitle {
+  margin-bottom: 6px;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseTableRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    color var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.databaseTableRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.databaseTableName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--dsw-font-xxs-12);
+}
+
+.databaseTableType {
+  flex: none;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseQueryPane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 8px;
+}
+
+.databaseSqlInput {
+  flex: none;
+  box-sizing: border-box;
+  min-height: 136px;
+  padding: 12px 14px;
+  resize: vertical;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-markdown-code-block-small);
+  line-height: 1.5;
+}
+
+.databaseSqlInput:focus {
+  outline: none;
+  border-color: var(--dsw-alias-border-l2);
+  box-shadow: 0 0 0 3px rgb(79 70 229 / 0.10);
+}
+
+.databaseQueryActions {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.databaseUpdateResult {
+  padding: 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+}
+
+.databaseResultTableWrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.databaseResultTable {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--dsw-font-xxs-12);
+}
+
+.databaseResultTable th,
+.databaseResultTable td {
+  max-width: 320px;
+  padding: 8px 10px;
+  border-right: 1px solid var(--dsw-alias-border-l1);
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.databaseResultTable th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xxs-strong-12);
+  letter-spacing: 0.02em;
+}
+
+.databaseResultTable td {
+  color: var(--dsw-alias-label-primary);
+}
+
+.databaseTruncated {
+  padding: 6px 8px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  color: var(--dsw-alias-label-tertiary);
+  font: var(--dsw-font-xxxs-11);
+}
+
+.lineageDetailLabel {
+  margin-bottom: 4px;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.lineageDetailText {
+  font: var(--dsw-font-xxs-12);
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+.lineagePropertyRow {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px 10px;
+  font: var(--dsw-font-xxs-12);
+  line-height: 1.6;
+}
+
+.lineagePropertyKey {
+  padding-top: 1px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.lineagePropertyValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--dsw-alias-label-primary);
+}
+
+@keyframes dsh-lineage-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lineageDetail {
+    animation: none;
+  }
+}
+
 /* The tree-panel toggle in the header: active = panel open (the selected
    fill of the tab strip). */
 .editorTreeToggleActive {
@@ -2943,4 +3970,597 @@ body[data-dsh-sidebar-dragging] .bottomPanel {
 .tocFlash {
   animation: dsh-toc-flash 1.2s ease-out;
   border-radius: 4px;
+}
+
+/* ── Database explorer (Chat2DB-style tree + form) ─────────────────────── */
+
+.databaseLayout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  background: linear-gradient(180deg, var(--dsw-alias-bg-layer-2), var(--dsw-alias-bg-layer-1));
+}
+
+.databaseTree {
+  flex: none;
+  width: 264px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 72%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 78%, transparent);
+}
+
+.databaseTreeToolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 58%, transparent);
+}
+
+.databaseMenuAnchor {
+  position: relative;
+}
+
+.databaseMenuBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+}
+
+.databaseMenu {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  z-index: 30;
+  min-width: 150px;
+  padding: 4px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-shadow-lv3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.databaseMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  text-align: left;
+  cursor: pointer;
+}
+
+.databaseMenuItem:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.databaseTypeList {
+  position: absolute;
+  top: -6px;
+  left: 100%;
+  margin-left: 6px;
+  width: 220px;
+  max-height: 340px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-shadow-lv3);
+}
+
+.databaseTypeSearch {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 0 8px;
+  height: 28px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseTypeSearch input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+}
+
+.databaseTypeScroll {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.databaseTypeItems {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.databaseTypeItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  text-align: left;
+  cursor: pointer;
+}
+
+.databaseTypeItem:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.databaseTypeItem:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.databaseTypeDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.databaseTypeSoon {
+  margin-left: auto;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseTreeBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.databaseTreeEmpty {
+  padding: 28px 12px;
+  text-align: center;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseTreeSpacer {
+  flex: 1;
+}
+
+.databaseConnRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 5px 9px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  text-align: left;
+  cursor: pointer;
+}
+
+.databaseConnRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dsw-alias-border-l1) 72%, transparent);
+}
+
+.databaseConnRowActive {
+  background: color-mix(in srgb, #6366f1 10%, var(--dsw-alias-bg-layer-1));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #6366f1 22%, transparent);
+}
+
+.databaseConnName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.databaseConnMeta {
+  flex: none;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseRowActions {
+  flex: none;
+  display: none;
+  gap: 2px;
+}
+
+.databaseConnRow:hover .databaseRowActions {
+  display: inline-flex;
+}
+
+.databaseMiniButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.databaseMiniButton:hover {
+  background: var(--dsw-alias-interactive-bg-active);
+  color: var(--dsw-alias-label-primary);
+}
+
+.databaseDbRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 5px 9px 5px 22px;
+  border-radius: 10px;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  cursor: pointer;
+  transition: background var(--ds-transition-duration-slow) var(--ds-ease-in-out), color var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.databaseDbRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.databaseTableLeaf {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 4px 9px 4px 42px;
+  border-radius: 9px;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  cursor: pointer;
+  transition: background var(--ds-transition-duration-slow) var(--ds-ease-in-out), color var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.databaseTableLeaf:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.databaseTypeVersions {
+  margin-left: auto;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseFolderRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 3px 8px 3px 34px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: var(--dsw-font-xxs-12);
+  cursor: pointer;
+}
+
+.databaseFolderRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.databaseFolderName {
+  flex: 1;
+  min-width: 0;
+}
+
+.databaseFolderCount {
+  flex: none;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseObjectComment {
+  flex: none;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseTableExpand {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.databaseTableExpand:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+.databaseTableSubTree {
+  padding-left: 56px;
+}
+
+.databaseSubFolder {
+  padding: 3px 0;
+  font: var(--dsw-font-xxxs-11);
+  color: var(--dsw-alias-label-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.databaseSubLeaf {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  font: var(--dsw-font-xxxs-11);
+}
+
+.databaseSubLeafName {
+  flex: none;
+  min-width: 80px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.databaseSubLeafMeta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary);
+}
+.databaseMain {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.databasePlaceholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.databaseFormPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.databaseFormHeader {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, #6366f1 7%, transparent), transparent 64%);
+}
+
+.databaseFormTitle {
+  flex: 1;
+  min-width: 0;
+  font: var(--dsw-font-xs-strong-13);
+  color: var(--dsw-alias-label-primary);
+}
+
+.databaseFormBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 620px;
+}
+
+.databaseFormRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 42%, transparent);
+}
+
+.databaseInput {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xxs-12);
+  transition: border-color var(--ds-transition-duration-slow) var(--ds-ease-in-out), box-shadow var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+.databaseInput:hover {
+  border-color: var(--dsw-alias-border-l2);
+}
+
+.databaseInput:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.10);
+}
+
+.databaseFormRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.databaseFormLabel {
+  flex: none;
+  width: 64px;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.databaseFormControl {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.databasePortLabel {
+  flex: none;
+  font: var(--dsw-font-xxs-12);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.databaseEyeButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.databaseEyeButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.databaseFormFooter {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 10px 16px;
+  border-top: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 72%, transparent);
+}
+
+.databaseFormSpacer {
+  flex: 1;
+}
+
+.databasePrimaryButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: var(--dsw-alias-interactive-fg, #ffffff);
+  font: var(--dsw-font-xxs-12);
+  cursor: pointer;
+}
+
+.databasePrimaryButton:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover, #8d7ff5);
+}
+
+.databasePrimaryButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.databaseQueryView {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  overflow: hidden;
+}
+
+.databaseQueryHeader {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-border-l1) 70%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 76%, transparent);
+  box-shadow: 0 4px 14px rgb(15 23 42 / 0.04);
+}
+
+.databaseNotice {
+  margin: 10px 16px 0;
+  padding: 9px 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  background: rgb(240 253 244 / 0.92);
+  color: #15803d;
+  font: var(--dsw-font-xxs-12);
+  box-shadow: 0 8px 20px rgb(15 23 42 / 0.04);
+}
+
+.databaseQueryTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--dsw-font-xxs-strong-12);
+  color: var(--dsw-alias-label-primary);
 }

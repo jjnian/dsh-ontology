@@ -53,6 +53,11 @@ import { AgentOpenRegistry, registerOpenTool, type AgentOpenRequest } from './ag
 import { buildJobsApi, type SidebarJobsRoutes } from './jobs-routes.ts'
 import { buildSubagentLiveApi, type SidebarSubagentLiveRoutes } from './subagent-live-route.ts'
 import { buildSidechatApi } from './sidechat-routes.ts'
+import { buildDatabaseApi } from './database-route.ts'
+import { buildLineageWorkspaceApi } from './lineage-workspace-route.ts'
+import { extractLineageGraph, extractLineageHistory, extractLineagePatch } from './client/lineage/lineage-extract.ts'
+import { extractOntologyFromDdl, listWorkspaceAssets, readAssetOntologies } from './ontology-assets.ts'
+import { registerLineageTool } from './lineage-tool.ts'
 import { readJsonBody, requireString, SidebarError, writeError, writeJson, writeOk } from './wire.ts'
 
 export { Config }
@@ -322,6 +327,8 @@ function buildApi(
   // `subagents.history` calls. The route degrades to a 503 when the host
   // subagent runtime is absent (the page has no topology to show anyway).
   const subagentLiveApi: SidebarSubagentLiveRoutes = buildSubagentLiveApi(ctx)
+  const databaseApi = buildDatabaseApi()
+  const lineageWorkspaceApi = buildLineageWorkspaceApi(cwdOf)
   return {
     'session.cwd': async (payload) => {
       const { sessionId, cwd } = await cwdOf(payload)
@@ -624,6 +631,40 @@ function buildApi(
     // identities are fenced from the generic session RPCs (agent-lookup
     // ownership), and the thread is created with a CUSTOM seed the stock
     // fork APIs cannot express.
+    'lineage.graph': async (payload) => {
+      const sessionId = requireString(payload, 'sessionId')
+      const events = ctx.sessions.get(sessionId)?.events
+      return { graph: events === undefined ? null : extractLineageGraph(events) }
+    },
+    'lineage.history': async (payload) => {
+      const sessionId = requireString(payload, 'sessionId')
+      const events = ctx.sessions.get(sessionId)?.events
+      return { history: events === undefined ? [] : extractLineageHistory(events) }
+    },
+    'lineage.patch': async (payload) => {
+      const sessionId = requireString(payload, 'sessionId')
+      const events = ctx.sessions.get(sessionId)?.events
+      return { patch: events === undefined ? null : extractLineagePatch(events) }
+    },
+    'lineage.assets': async (payload) => {
+      const { cwd } = await cwdOf(payload)
+      return listWorkspaceAssets(cwd)
+    },
+    'lineage.extract-assets': async (payload) => {
+      const { cwd } = await cwdOf(payload)
+      const raw = payload as { paths?: unknown }
+      if (!Array.isArray(raw.paths)) throw new SidebarError('bad-request', 'paths must be an array')
+      const paths = raw.paths.filter((path): path is string => typeof path === 'string' && path !== '')
+      const result = await readAssetOntologies(cwd, paths)
+      return result
+    },
+    'lineage.extract-ddl': async (payload) => {
+      const sql = requireString(payload, 'sql')
+      const source = requireString(payload, 'source')
+      return { graph: extractOntologyFromDdl(sql, source), errors: [] }
+    },
+    ...databaseApi,
+    ...lineageWorkspaceApi,
     ...buildSidechatApi(ctx),
   }
 }
@@ -678,6 +719,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   // `/sidebar/ws/agent-opens` socket. Unlike the pty registry it has no
   // native dependencies — the tool works even in node-pty degraded mode.
   const agentOpenRegistry = new AgentOpenRegistry()
+  const lineageToolDisposer = registerLineageTool(ctx)
 
   // ── User-facing "Side card" preferences ──────────────────────────────────
   // Register the namespace with the settings provider so the Settings page
@@ -1041,6 +1083,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
 
   ctx.effect(() => () => {
     toolsDisposers?.()
+    lineageToolDisposer()
     openToolsDisposers?.()
     ptyManager?.disposeAll()
     agentPtyRegistry?.disposeAll()

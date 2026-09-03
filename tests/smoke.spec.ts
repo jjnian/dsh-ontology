@@ -1085,7 +1085,7 @@ describe('side card settings routes', () => {
 
 
 describe('agent terminal tool gating', () => {
-  it('injects the eight tools only when the side-card setting is enabled (default off)', () => {
+  it('injects the eight terminal tools only when the side-card setting is enabled (default off)', () => {
     let registered = 0
     let disposed = 0
     // The tools currently registered (registered minus disposed).
@@ -1124,24 +1124,24 @@ describe('agent terminal tool gating', () => {
       get: () => undefined,
     }
     apply(ctx as never)
-    // Default off: no tools are registered even though the settings service is mounted.
-    expect(live()).toBe(0)
+    // Default off: only the always-on lineage tools are registered (no terminal tools).
+    expect(live()).toBe(3)
     // Flipping the setting on registers all eight tools.
     enabled = true
     watcherRef.current?.()
-    expect(live()).toBe(8)
+    expect(live()).toBe(11)
     expect(disposed).toBe(0)
     // Flipping it back off unregisters them (and releases any agent terminals).
     enabled = false
     watcherRef.current?.()
-    expect(live()).toBe(0)
+    expect(live()).toBe(3)
     expect(disposed).toBe(8)
     // And a redundant toggle registers them fresh (no double-registration per
     // flip: the guard only skips when the tools are already live).
     enabled = true
     watcherRef.current?.()
-    expect(live()).toBe(8)
-    expect(registered).toBe(16)
+    expect(live()).toBe(11)
+    expect(registered).toBe(19)
   })
 })
 
@@ -1180,22 +1180,22 @@ describe('agent sidebar-open tool gating', () => {
       get: () => undefined,
     }
     apply(ctx as never)
-    // Default off: no open tool is registered even though the settings service is mounted.
-    expect(live()).toBe(0)
+    // Default off: only the always-on lineage tools are registered (no sidebar_open tool).
+    expect(live()).toBe(3)
     // Flipping the setting on registers the single sidebar_open tool.
     enabled = true
     watcherRef.current?.()
-    expect(live()).toBe(1)
+    expect(live()).toBe(4)
     expect(disposed).toBe(0)
     // Flipping it back off unregisters it (and drains the undelivered queue).
     enabled = false
     watcherRef.current?.()
-    expect(live()).toBe(0)
+    expect(live()).toBe(3)
     expect(disposed).toBe(1)
     // And a redundant toggle registers it fresh (no double-registration).
     enabled = true
     watcherRef.current?.()
-    expect(live()).toBe(1)
-    expect(registered).toBe(2)
+    expect(live()).toBe(4)
+    expect(registered).toBe(5)
   })
 })

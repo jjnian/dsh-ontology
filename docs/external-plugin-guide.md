@@ -3,7 +3,7 @@
 > 面向 **消费插件开发者**：如何让你的插件向 better-sidebar 注册新的侧边栏页面（tab）和文件类型预览器。
 >
 > 适用版本：**v0.4.0+**（`ctx.betterSidebar` 服务）；声明式设置 **v0.4.1+**；text/number 设置行 **v0.11.0+**；badge/生命周期/定向打开/插件设置/版本探测 **v0.12.0+**；select 设置行（`settingSelect`）与外链认领（`urlTarget`）**v0.13.0+**；统一 `@deepseek-ai/cordis` 类型基底 **v0.15.2+**；自由窗口（`floatWindows`）**v0.16.0+**；终端固定（pin）**v0.17.0+**。当前版本 **v0.18.0-alpha.0**（alpha 通道，仅支持 DSH 0.1.2-alpha.x；stable 线为 v0.17.1）。
-> 权威代码：`src/client/service.ts`（服务实现）、`src/client/builtins/`（内置 7 tab + 6 viewer 参考实现）、`lib/types/client/service.d.ts`（类型声明）。
+> 权威代码：`src/client/service.ts`（服务实现）、`src/client/builtins/`（内置 9 tab + 6 viewer 参考实现）、`lib/types/client/service.d.ts`（类型声明）。
 > 仓库开发规则（硬约束 / CI / 发版）见 [AGENTS.md](../AGENTS.md)。
 
 ---
@@ -15,7 +15,7 @@ better-sidebar 从 v0.4.0 起把自己改造成一个**注册表服务**：
 - **新页面（tab）**：注册一种新的侧边栏 tab 类型，出现在侧边栏 `+` 菜单里，用户点击后在自己的分栏里打开你的 React 页面；
 - **文件预览器（file viewer）**：注册一种文件类型预览器，让用户在侧边栏打开文件时走你的渲染组件（覆盖或补充内置的 image/pdf/code 等）。
 
-内置的 7 个 tab（editor / git / subagent / sidechat / terminal / browser / diff）和 6 个 viewer（image / pdf / markdown / html / code / binary-download）**自己也是通过同一套 API 注册的**（吃自己的狗粮），所以外部插件的能力与内置功能完全对等。
+内置的 9 个 tab（editor / git / subagent / sidechat / terminal / browser / lineage / database / diff）和 6 个 viewer（image / pdf / markdown / html / code / binary-download）**自己也是通过同一套 API 注册的**（吃自己的狗粮），所以外部插件的能力与内置功能完全对等。
 
 关键机制一句话：better-sidebar 的 client half 在 `apply()` 开头执行 `ctx.provide('betterSidebar', service)`（`src/client/index.tsx`），消费插件在 `inject` 里声明 `'betterSidebar'`，Cordis 保证服务就绪后才激活你的插件，然后你调用 `ctx.betterSidebar.registerTab(...)` / `registerFileViewer(...)` 完成注册，返回的 disposer 由 Cordis fiber 在卸载（HMR / 禁用）时自动调用。
 
@@ -364,6 +364,8 @@ ctx.effect(() => {
 | `sidechat` | 35 | 否（`sidechat:<uuid>`，按 `meta.threadId` 去重） | 否 | 侧边对话（每对话一 Tab）：打开即建空线程（首条消息赢得标签并同步标题）；线程 = 插件自建子会话（种子继承父会话上下文，进行中回合以 `interrupted` 闭合；种子带合法 `subagent/descriptor`，SubagentView 按 `Side: ` 前缀过滤），`origin:'subagent'` 隐藏于主列表；走 `/sidebar/api/sidechat.*` 路由；头部菜单切换/重开（`parkSidechatReopen` + 确定性 id），关 Tab 释放 live agent；重开经 `collectOwnEvents` 回源到种子边界；「保存为新会话」= `session.fork`（`this` 敏感）。[设计文档](plans/2026-08-20-sidechat-tab-design.md) |
 | `terminal` | 40 | 否（`terminal:<n>`） | 否 | 终端。v0.17.0+ 右键「固定到工作区/全局」：跨会话不消失，TabBar 内联虚拟 Tab（`pinned:<homeSessionId>:<tabId>`），就地按 home scope 连 PTY；global 全会话可见、workspace 仅同 cwd；`tab.pin = { scope, homeCwd? }` 随会话持久化，渲染期解析（`collectPinnedTabs` → `createPinnedVirtualTab` → `injectPinnedIntoTree`） |
 | `browser` | 50 | 否（`browser:<n>`） | 否 | 内嵌浏览器（沙箱 iframe，可设置关沙箱） |
+| `lineage` | 55 | 是 | 否 | 血缘图（SVG 画布：分层 LR 布局 / 平移缩放 / 节点拖拽 / 搜索 / 节点详情）。从会话工作区加载 `{ nodes, edges }` JSON 文件、内置示例数据，或从当前 DeepSeek 对话生成的 `{ nodes, edges }` 图（含模型调用 `lineage_graph` 工具）抽取最新一份 |
+| `database` | 56 | 是 | 否 | 多引擎数据库查看器（MySQL 5.7/8.0+、PostgreSQL 10+、DM8）：保存/编辑/删除连接、测试连接、按类型浏览对象（表/视图/函数/存储过程/触发器）、展开表查看列/键/索引、执行 SQL 并显示结果；连接凭据通过 pluginSettings.database.connections 保存在侧边栏设置中，多引擎请求走 /sidebar/api/db.* 由 host 代发：保存/编辑/删除连接、测试连接、列出数据库和表、执行 SQL 并显示结果；连接凭据通过 `pluginSettings.database.connections` 保存在侧边栏设置中，MySQL 请求走 `/sidebar/api/db.*` 由 host 代发 |
 | `diff` | -1 | 否（按 id 去重） | 是 | 差异查看（GitView 触发） |
 
 你的 `id` 不可与上述重复，否则 `registerTab` 抛 `"tab type \"X\" already registered"`。
@@ -524,6 +526,8 @@ const { value } = await res.json()   // 错误时 { ok: false, error: { code, me
 | `git.status` / `git.diff` / `git.log` 等 | 全套 Git 只读 + 写操作 |
 | `pty.close` / `agent-pty.close` | 释放终端（外部 tab 一般用不到） |
 | `settings.get` / `settings.update` | 侧边栏偏好读写（revision 守卫） |
+| `lineage.graph` | 从当前会话事件日志抽取最新血缘图（`{ graph: { nodes, edges } \| null }`），血缘 tab 打开时静默刷新 |
+| `db.test / db.databases / db.objects / db.columns / db.keys / db.indexes / db.query | 多引擎数据库操作（MySQL 5.7/8.0+、PostgreSQL 10+、DM8）：连接测试、数据库列表、按类型浏览对象、列/键/索引、SQL 执行；请求体传 ngine + 连接参数
 
 > **文件路径安全边界**：`fs.tree`、`fs.read`、`fs.write`、`/sidebar/file`、`/sidebar/html` 和 `/sidebar/upload` 都以请求对应 session 的权威 `cwd` 作为 workspace 根目录。路径会按真实文件系统路径检查，越界绝对路径、`..` 解析结果和指向 workspace 外部的符号链接都会被拒绝；消费插件不应把 `cwd` 当作可由用户扩大权限范围的参数。
 
@@ -855,7 +859,7 @@ function parseCsv(text: string): string[][] { /* ... */ }
 
 better-sidebar 的内置 tab 和 viewer 就是参考实现（"吃狗粮"），调试时直接读：
 
-- **`src/client/builtins/`**：7 个内置 tab（tabs.tsx）+ 6 个内置 viewer（viewers.tsx）的注册代码 + 聚合与 disposer 生命周期（index.ts）；Office 预览见 plugins-viewers.ts
+- **`src/client/builtins/`**：9 个内置 tab（tabs.tsx）+ 6 个内置 viewer（viewers.tsx）的注册代码 + 聚合与 disposer 生命周期（index.ts）；Office 预览见 plugins-viewers.ts
 - **`src/client/service.ts`**：`BetterSidebarService` 接口 + `createBetterSidebarService` 工厂实现（含匹配算法、dedupe、createTab、启用态 gating）
 - **`src/client/Sidebar.tsx`**：`TabContent` 分发（查 `getTab` → 调 descriptor.component；未注册 → `<OrphanedTab/>`）、`+` 菜单构建（order 排序 + available disabled + 禁用过滤）、自由窗口拖拽检测
 - **`src/client/FreeWindow.tsx`**：自由窗口（移动/停靠/缩放/置顶，§11）
@@ -865,7 +869,7 @@ better-sidebar 的内置 tab 和 viewer 就是参考实现（"吃狗粮"），�
 - **`src/client/FileTree.tsx`** / **`TreePanel.tsx`** / **`src/fs-search.ts`**：文件树 / 树面板 / host 文件名搜索（`fs.search`；`tests/fs-search.spec.ts`）
 - **`src/client/markdown-html.ts`** / **`MarkdownHtml.tsx`** / **`md-toc.tsx`**：markdown 内嵌 HTML 管线与目录大纲（注意 `md-toc.tsx` 头注释的「子组件读父 ref 为 null」时序陷阱）
 - **`src/agent-opens.ts`** / **`/sidebar/ws/agent-opens`**：模型主动打开（`sidebar_open` 工具 + `agentOpenTools` 设置，默认关闭）；文件夹窗口 = `meta.dir: true` 的 editor tab（[设计文档](plans/2026-08-23-agent-open-tools-design.md)）
-- **`tests/service.spec.ts`** / **`tests/builtins.spec.ts`**：注册表生命周期 / 匹配算法 / dedupe / createTab / 启用态 gating；内置清单断言（7 tab + 6 viewer + 声明式元数据）
+- **`tests/service.spec.ts`** / **`tests/builtins.spec.ts`**：注册表生命周期 / 匹配算法 / dedupe / createTab / 启用态 gating；内置清单断言（9 tab + 6 viewer + 声明式元数据）
 - **`docs/plans/`**：逐特性设计文档（含实施偏差记录，以现状为准）；入口如 `2026-08-11-service-registry-design.md` / `2026-08-11-declarative-sidebar-settings-design.md`
 
 ---
@@ -882,3 +886,4 @@ better-sidebar 的内置 tab 和 viewer 就是参考实现（"吃狗粮"），�
 通过 `ctx.betterSidebar` 的三方插件 [dsh-sidebar-qa](https://github.com/ChenRuoT/dsh-sidebar-qa) —— 基于 better-sidebar 的划选提问：对话划选 → 右侧面板提问 → 同工作区独立追问会话（❓追问·主题）；快速无思考模型压缩主对话上下文后与引文一起注入，不打断主对话；追问可嵌套、可继续、可归档。
 
 更多插件接入后欢迎在此登记（一句话 + 链接）。
+

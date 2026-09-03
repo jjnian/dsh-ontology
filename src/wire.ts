@@ -17,6 +17,7 @@ export type SidebarErrorCode =
   | 'git-error'
   | 'pty-error'
   | 'pty-deps-missing'
+  | 'db-error'
   | 'job-error'
   | 'sidechat-error'
   | 'subagents-unavailable'

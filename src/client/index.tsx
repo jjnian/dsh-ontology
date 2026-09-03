@@ -15,6 +15,8 @@ import { allLeaves, createSidebarStore, isAgentTabId } from './state.ts'
 import { createBetterSidebarService, matchUrlTarget } from './service.ts'
 import { revalidateChunksOnReactivate, setChunkModuleSystem } from './chunk-loader.ts'
 import { registerBuiltins } from './builtins/index.ts'
+import { registerLineageReferenceSource } from './lineage/lineage-reference.ts'
+import { registerLineageToolView } from './lineage/lineage-tool-row.tsx'
 import { Sidebar } from './Sidebar.tsx'
 import { RenderBoundary } from './RenderBoundary.tsx'
 import { registerOpenPathInterception, registerTurnTailInterception } from './intercept.tsx'
@@ -148,6 +150,19 @@ export function apply(ctx: Context): void {
   ctx.effect(
     () => registerBuiltins(ctx, service, { terminalTitle: () => terminalTitle }),
     'dsh-better-sidebar: register built-in tabs and viewers',
+  )
+  // The lineage graph also joins the composer's @ reference menu. Selecting
+  // it inserts editable JSON, so the user can modify the graph before sending.
+  ctx.effect(
+    () => {
+      try {
+        return registerLineageReferenceSource(ctx)
+      } catch (error) {
+        fail('lineage @ reference source', error)
+        return () => {}
+      }
+    },
+    'dsh-better-sidebar: lineage @ reference source',
   )
   // A failure anywhere in the client lifecycle must never take the app down
   // silently: log with the plugin prefix and pin a visible diagnostic strip
@@ -405,6 +420,9 @@ export function apply(ctx: Context): void {
       'dsh-better-sidebar: settings navigation icon',
     )
 
+    // Make the lineage_graph tool row clickable: it opens the right-side lineage tab.
+    registerLineageToolView(ctx)
+
     // The "Side card" settings section: appears in the DSH Settings shell
     // once the shell's declaration is on the ledger (slots.inject waits for
     // it); the section reads/writes the prefs through the plugin's own
@@ -421,3 +439,5 @@ export function apply(ctx: Context): void {
     fail('load', error)
   }
 }
+
+

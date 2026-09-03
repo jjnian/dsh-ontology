@@ -10,6 +10,68 @@ import { encodeHtmlUrl } from '../html-route.ts'
 import type { LastActivity } from '../subagent-activity.ts'
 import type { SidechatLogEvent, SidechatThreadInfo } from '../sidechat-core.ts'
 import type { BrowserProbeResult } from './browser.ts'
+import type { LineageGraph, LineageHistoryEntry, LineageWorkspace, LineageWorkspaceSummary } from './lineage/lineage-types.ts'
+import type { LineagePatchEntry } from './lineage/lineage-extract.ts'
+
+/** One MySQL connection configuration sent to the host database routes. */
+export type DbEngine = 'mysql' | 'postgresql' | 'dm'
+
+export interface DatabaseConnectionInput {
+  engine: DbEngine
+  host: string
+  port: number
+  user: string
+  password: string
+  database?: string
+}
+
+export interface DbObjectInfo {
+  name: string
+  type: string
+  comment: string
+}
+
+export interface DbColumnInfo {
+  name: string
+  dataType: string
+  nullable: boolean
+  defaultValue: string
+  comment: string
+}
+
+export interface DbKeyInfo {
+  name: string
+  type: string
+  columns: string[]
+}
+
+export interface DbIndexInfo {
+  name: string
+  unique: boolean
+  columns: string[]
+}
+
+export type DbObjectKind = 'tables' | 'views' | 'functions' | 'procedures' | 'triggers'
+
+export interface DatabaseTableInfo {
+  name: string
+  type: string
+  rows: number | null
+  comment: string
+}
+
+export type DatabaseQueryResult =
+  | { kind: 'rows'; columns: string[]; rows: unknown[][]; truncated: boolean }
+  | { kind: 'update'; affectedRows: number; changedRows: number; insertId: number }
+
+export interface DatabaseDdlResult {
+  kind: 'table' | 'view' | 'function' | 'procedure' | 'trigger'
+  ddl: string
+}
+
+function databasePayload(connection: DatabaseConnectionInput): Record<string, unknown> {
+  return { ...connection }
+}
 
 /** One wire failure. */
 export class SidebarApiError extends Error {
@@ -219,6 +281,66 @@ function gitPayload(scope: SessionScope, worktree: string | undefined, extra: Re
 export const api = {
   sessionCwd: (scope: SessionScope, signal?: AbortSignal) =>
     call<{ sessionId: string; cwd: string; root: string; parent: string | null }>('session.cwd', scopePayload(scope, {}), signal),
+  /** The latest lineage graph ({ nodes, edges }) generated in this session's conversation. */
+  lineageGraph: (scope: SessionScope, signal?: AbortSignal) =>
+    call<{ graph: LineageGraph | null }>('lineage.graph', scopePayload(scope, {}), signal),
+  /** Every lineage graph snapshot found in this session's conversation, newest first. */
+  lineageHistory: (scope: SessionScope, signal?: AbortSignal) =>
+    call<{ history: LineageHistoryEntry[] }>('lineage.history', scopePayload(scope, {}), signal),
+  /** The latest incremental lineage patch submitted by the model. */
+  lineagePatch: (scope: SessionScope, signal?: AbortSignal) =>
+    call<{ patch: LineagePatchEntry | null }>('lineage.patch', scopePayload(scope, {}), signal),
+  /** Workspace documents available for ontology extraction. */
+  lineageAssets: (scope: SessionScope, signal?: AbortSignal) =>
+    call<{ assets: string[]; truncated: boolean }>('lineage.assets', scopePayload(scope, {}), signal),
+  /** Parse workspace documents into conservative ontology candidates. */
+  lineageExtractAssets: (scope: SessionScope, paths: string[]) =>
+    call<{ graph: LineageGraph; errors: { path: string; message: string }[] }>(
+      'lineage.extract-assets',
+      scopePayload(scope, { paths }),
+    ),
+  /** Parse DDL text fetched from a live database into ontology candidates. */
+  lineageExtractDdl: (source: string, sql: string) =>
+    call<{ graph: LineageGraph; errors: { path: string; message: string }[] }>(
+      'lineage.extract-ddl',
+      { source, sql },
+    ),
+  lineageWorkspaceList: (scope: SessionScope, signal?: AbortSignal) =>
+    call<{ workspaces: LineageWorkspaceSummary[] }>('lineage.workspace.list', scopePayload(scope, {}), signal),
+  lineageWorkspaceGet: (scope: SessionScope, id: string, signal?: AbortSignal) =>
+    call<{ workspace: LineageWorkspace }>('lineage.workspace.get', scopePayload(scope, { id }), signal),
+  lineageWorkspaceSave: (
+    scope: SessionScope,
+    workspace: {
+      id?: string
+      name: string
+      description?: string
+      sourceAssets?: string[]
+      graph: LineageGraph
+    },
+  ) => call<{ workspace: LineageWorkspace }>('lineage.workspace.save', scopePayload(scope, workspace)),
+  lineageWorkspaceDelete: (scope: SessionScope, id: string) =>
+    call<{ ok: true }>('lineage.workspace.delete', scopePayload(scope, { id })),
+  lineageWorkspaceRestore: (scope: SessionScope, id: string, revisionId: string) =>
+    call<{ workspace: LineageWorkspace }>('lineage.workspace.restore', scopePayload(scope, { id, revisionId })),
+  dbTest: (connection: DatabaseConnectionInput) =>
+    call<{ ok: true; serverVersion: string }>('db.test', databasePayload(connection)),
+  dbDatabases: (connection: DatabaseConnectionInput) =>
+    call<{ databases: string[] }>('db.databases', databasePayload(connection)),
+  dbTables: (connection: DatabaseConnectionInput) =>
+    call<{ tables: DatabaseTableInfo[] }>('db.tables', databasePayload(connection)),
+  dbObjects: (connection: DatabaseConnectionInput, database: string, kind: DbObjectKind) =>
+    call<{ objects: DbObjectInfo[] }>('db.objects', { ...databasePayload(connection), database, kind }),
+  dbColumns: (connection: DatabaseConnectionInput, database: string, object: string) =>
+    call<{ columns: DbColumnInfo[] }>('db.columns', { ...databasePayload(connection), database, object }),
+  dbKeys: (connection: DatabaseConnectionInput, database: string, object: string) =>
+    call<{ keys: DbKeyInfo[] }>('db.keys', { ...databasePayload(connection), database, object }),
+  dbIndexes: (connection: DatabaseConnectionInput, database: string, object: string) =>
+    call<{ indexes: DbIndexInfo[] }>('db.indexes', { ...databasePayload(connection), database, object }),
+  dbDdl: (connection: DatabaseConnectionInput, database: string, object: string) =>
+    call<DatabaseDdlResult>('db.ddl', { ...databasePayload(connection), database, object }),
+  dbQuery: (connection: DatabaseConnectionInput, sql: string) =>
+    call<DatabaseQueryResult>('db.query', { ...databasePayload(connection), sql }),
   fsTree: (scope: SessionScope, path: string, signal?: AbortSignal) =>
     call<{ path: string; entries: FsEntry[]; truncated: boolean }>('fs.tree', scopePayload(scope, { path }), signal),
   /** Global recursive file-name search rooted at the session cwd (the editor

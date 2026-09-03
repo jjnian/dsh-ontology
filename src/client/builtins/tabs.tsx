@@ -1,13 +1,13 @@
 /**
- * The 7 built-in tab descriptors: the plugin registers its own pages
- * (editor / git / subagent / sidechat / terminal / browser / diff) through
+ * The 9 built-in tab descriptors: the plugin registers its own pages
+ * (editor / git / subagent / sidechat / terminal / browser / lineage / database / diff) through
  * the same {@link BetterSidebarService} external plugins use — eating its
  * own dogfood. The terminal descriptor owns its quota (`TERMINAL_LIMIT`)
  * and mints `terminal:<uuid>` ids through `createTab`; the browser mints
  * `browser:<n>` the same way (no quota). The editor IS the files window
  * (the old standalone explorer merged into it).
  */
-import { IconBranchOutline16, IconCodeOutline16, IconFolderOpen16, IconNewChatOutline16, IconPanelLeftOutline16, IconThinkOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconBranchOutline16, IconCodeOutline16, IconDataOutline16, IconFolderOpen16, IconNewChatOutline16, IconPanelLeftOutline16, IconThinkOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '../../context-types.ts'
 import { allLeaves, isAgentTabId, type SidebarState } from '../state.ts'
 import { t } from '../locales.ts'
@@ -21,6 +21,8 @@ import { SubagentView } from '../SubagentView.tsx'
 import { consumeSidechatSeed, SideChatView, sidechatThreadIdOf } from '../SideChatView.tsx'
 import { api } from '../api.ts'
 import { BrowserView } from '../BrowserView.tsx'
+import { LineageGraphTab } from '../lineage/LineageGraphTab.tsx'
+import { DatabaseView } from '../DatabaseView.tsx'
 import { IconTerminalOutline16, IconDiffOutline16, IconGlobeOutline16 } from '../icons.tsx'
 import { TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN } from '../../prefs-shared.ts'
 import type { ComponentType } from 'react'
@@ -334,6 +336,22 @@ export function builtinTabs(ctx: Context, options: BuiltinTabOptions = {}): read
         patch: { nextBrowser: state.nextBrowser + 1 },
       }),
       component: (props) => <BrowserView {...props} />,
+    },
+    {
+      id: 'lineage',
+      title: () => t('lineage'),
+      icon: (size: number) => <IconDataOutline16 size={size} />,
+      order: 55,
+      single: true,
+      component: (props) => <LineageGraphTab {...props} />,
+    },
+    {
+      id: 'database',
+      title: () => t('database'),
+      icon: (size: number) => <IconDataOutline16 size={size} />,
+      order: 56,
+      single: true,
+      component: (props) => <DatabaseView {...props} />,
     },
     {
       id: 'diff',
