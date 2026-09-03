@@ -1,6 +1,7 @@
 /**
  * The 9 built-in tab descriptors: the plugin registers its own pages
- * (editor / git / subagent / sidechat / terminal / browser / lineage / database / diff) through
+ * (editor / git — the unified changes tab / subagent / sidechat / terminal /
+ * browser / lineage / database / diff) through
  * the same {@link BetterSidebarService} external plugins use — eating its
  * own dogfood. The terminal descriptor owns its quota (`TERMINAL_LIMIT`)
  * and mints `terminal:<uuid>` ids through `createTab`; the browser mints
@@ -15,7 +16,7 @@ import { openSidebarFile } from '../intercept.tsx'
 import { EditorHost } from '../EditorHost.tsx'
 import { OpenWithSettings } from '../open-with-settings.tsx'
 import { lazyChunkComponent } from '../lazy-chunk.tsx'
-import { GitView } from '../GitView.tsx'
+import { ChangesTab, opCountOf } from '../changes/ChangesTab.tsx'
 import { DiffTab } from '../DiffTab.tsx'
 import { SubagentView } from '../SubagentView.tsx'
 import { consumeSidechatSeed, SideChatView, sidechatThreadIdOf } from '../SideChatView.tsx'
@@ -23,7 +24,7 @@ import { api } from '../api.ts'
 import { BrowserView } from '../BrowserView.tsx'
 import { LineageGraphTab } from '../lineage/LineageGraphTab.tsx'
 import { DatabaseView } from '../DatabaseView.tsx'
-import { IconTerminalOutline16, IconDiffOutline16, IconGlobeOutline16 } from '../icons.tsx'
+import { IconTerminalOutline16, IconDiffOutline16, IconGlobeOutline16, IconFloatWindowOutline16, IconPanelBottomOutline16 } from '../icons.tsx'
 import { TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN } from '../../prefs-shared.ts'
 import type { ComponentType } from 'react'
 import type { SessionScope } from '../api.ts'
@@ -141,18 +142,55 @@ export function builtinTabs(ctx: Context, options: BuiltinTabOptions = {}): read
       ),
     },
     {
+      // The unified changes tab (id kept as 'git' so persisted layouts keep
+      // resolving): the Git lens is the former source-control panel; the
+      // session lens is the former file-trace tab (PR #471). Both preview
+      // through one shared diff stack. The badge reads the op-count cache
+      // the tab's event poll publishes (the client ctx exposes no event
+      // log, and the git status needs a fetch — both stay out of the badge).
       id: 'git',
-      title: () => t('git'),
-      icon: (size: number) => <IconBranchOutline16 size={size} />,
+      title: () => t('changes'),
+      icon: (size: number) => <IconDiffOutline16 size={size} />,
       order: 20,
       single: true,
-      component: ({ ctx, store, scope, visible, onOpenDiff }) => (
-        <GitView
-          scope={scope}
+      badge: (_ctx, scope) => {
+        const count = opCountOf(scope.sessionId)
+        return count === undefined || count === 0 ? null : count
+      },
+      // Declarative settings: the diff-open picker (free window vs docked
+      // pane) renders as an iconed select row under the changes card's gear
+      // in the Side card settings page.
+      settings: {
+        toggles: [{
+          key: 'changesDiffFloat',
+          type: 'select',
+          title: () => t('changesDiffOpenTitle'),
+          desc: () => t('changesDiffOpenDesc'),
+          options: [
+            {
+              value: true,
+              icon: (size: number) => <IconFloatWindowOutline16 size={size} />,
+              title: () => t('changesDiffOpenFloat'),
+              desc: () => t('changesDiffOpenFloatDesc'),
+            },
+            {
+              value: false,
+              icon: (size: number) => <IconPanelBottomOutline16 size={size} />,
+              title: () => t('changesDiffOpenPane'),
+              desc: () => t('changesDiffOpenPaneDesc'),
+            },
+          ],
+        }],
+      },
+      component: ({ ctx, store, scope, tab, visible, onOpenFile, onOpenDiff }) => (
+        <ChangesTab
+          ctx={ctx}
           store={store}
+          scope={scope}
+          tab={tab}
           visible={visible}
           onOpenFile={(path) => { openSidebarFile(ctx, store, scope.sessionId, path) }}
-          onOpenDiff={onOpenDiff ?? (() => { /* no-op */ })}
+          onOpenDiff={onOpenDiff}
         />
       ),
     },
@@ -163,7 +201,7 @@ export function builtinTabs(ctx: Context, options: BuiltinTabOptions = {}): read
       order: 30,
       single: true,
       // Declarative settings: the auto-open switches render under this row in
-      // the Side card settings page (the Jobs page's own related settings).
+      // the Side card settings page (the Tasks page's related settings).
       settings: {
         toggles: [{
           key: 'autoOpenSubagent',
@@ -355,7 +393,7 @@ export function builtinTabs(ctx: Context, options: BuiltinTabOptions = {}): read
     },
     {
       id: 'diff',
-      title: () => t('git'),
+      title: () => t('changes'),
       icon: (size: number) => <IconDiffOutline16 size={size} />,
       order: -1,
       hidden: true,

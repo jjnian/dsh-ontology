@@ -18,7 +18,7 @@ import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { WebSocket, WebSocketServer } from 'ws'
-import type { Context, SidebarHttpRequest } from './context-types.ts'
+import type { Context, SidebarHttpRequest, SidebarSessionEvent } from './context-types.ts'
 import {
   Config,
   PrefsSchema,
@@ -30,6 +30,7 @@ import {
   type SidebarPrefs,
 } from './config.ts'
 import { parentOf, requireAbsolute, listDirectory, rootLabel } from './fs-tree.ts'
+import { resolveSessionPath } from './session-path.ts'
 import { writeWorkspaceUpload } from './fs-operations.ts'
 import { ensureWorkspacePath, ensureWorkspaceWritePath } from './path-security.ts'
 import { searchFiles } from './fs-search.ts'
@@ -41,7 +42,7 @@ import { launchExternal } from './open-external.ts'
 import * as git from './git.ts'
 import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import { defaultShell, ensureSpawnHelper, PtyManager, shellDisplayName } from './pty-manager.ts'
-import { AgentPtyRegistry, clampDims, type AgentTerminalHandle } from './agent-pty.ts'
+import { AgentPtyRegistry, tryResizePty, type AgentTerminalHandle } from './agent-pty.ts'
 import {
   DSH_NODE_PTY_RANGE,
   depsStatus,
@@ -161,7 +162,7 @@ function selectedRepoOf(payload: unknown): string | undefined {
  * cwd when the root cannot be resolved, e.g. a bare directory).
  */
 async function resolveGitPath(cwd: string, raw: string, selected?: string): Promise<string> {
-  if (isAbsolute(raw)) return requireAbsolute(raw)
+  if (isAbsolute(raw)) return requireAbsolute(resolveSessionPath(cwd, raw))
   // Prefer the session-relative interpretation when it names an existing
   // path. Git status reports repository-root-relative names, but the sidebar
   // security boundary is the session workspace; this preference keeps files
@@ -461,6 +462,44 @@ function buildApi(
       const path = await resolveGitPath(cwd, requireString(payload, 'path'), repoRoot)
       const rev = requireString(payload, 'rev')
       return { content: await git.show(cwd, rev, path, repoRoot) }
+    },
+    // The session's file-tool events for the changes tab's session lens
+    // (and its badge): the CLIENT runtime's sessions face has no event-log
+    // access, so the events cross the wire here — live session log first,
+    // the persisted logical log for not-yet-hydrated sessions. Only the
+    // two event types the lens folds are sent, narrowed to `seq > afterSeq`
+    // so polling is a small delta, with the same recent-window cap the
+    // client accumulator applies.
+    'changes.ops': async (payload) => {
+      const sessionId = requireString(payload, 'sessionId')
+      const rawAfter = (payload as { afterSeq?: unknown } | null)?.afterSeq
+      if (rawAfter !== undefined
+        && (typeof rawAfter !== 'number' || !Number.isSafeInteger(rawAfter) || rawAfter < 0)) {
+        throw new SidebarError('bad-request', 'afterSeq must be a non-negative integer')
+      }
+      // An absent cursor means "from the very first event" — a session whose
+      // log opens on a tool event (subagent seeds do) carries seq 0, which a
+      // literal `> 0` comparison would drop, so the absent case floors at -1.
+      const afterSeq = rawAfter ?? -1
+      let events: readonly SidebarSessionEvent[] | undefined = ctx.sessions.get(sessionId)?.snapshotEvents()
+      if (events === undefined) {
+        const persistence = ctx.get('sessionPersistence')
+        if (persistence !== undefined) {
+          try {
+            events = (await persistence.inspect(sessionId)).events
+          } catch {
+            // Cold read unavailable (session never persisted): an empty
+            // window is the honest answer, not a wire error.
+          }
+        }
+      }
+      if (events === undefined) return { events: [], lastSeq: Math.max(afterSeq, 0) }
+      const CHANGES_EVENTS_CAP = 4000
+      const filtered = events.filter(
+        event => (event.type === 'tool/call' || event.type === 'tool/result') && event.seq > afterSeq,
+      )
+      const window = filtered.length > CHANGES_EVENTS_CAP ? filtered.slice(filtered.length - CHANGES_EVENTS_CAP) : filtered
+      return { events: window, lastSeq: window.at(-1)?.seq ?? afterSeq }
     },
     // Release a terminal immediately. The WebSocket close frame already does
     // this while the socket is open; this route covers the tab-close that
@@ -1259,8 +1298,7 @@ async function attachTerminal(
         && control.type === 'resize'
         && typeof control.cols === 'number' && typeof control.rows === 'number'
       ) {
-        const dims = clampDims(control.cols, control.rows)
-        handle.pty.resize(dims.cols, dims.rows)
+        tryResizePty(handle.pty, control.cols, control.rows)
       } else {
         handle.pty.write(text)
       }
@@ -1328,8 +1366,7 @@ function pumpAgentTerminal(
       && control.type === 'resize'
       && typeof control.cols === 'number' && typeof control.rows === 'number'
     ) {
-      const dims = clampDims(control.cols, control.rows)
-      handle.pty.resize(dims.cols, dims.rows)
+      tryResizePty(handle.pty, control.cols, control.rows)
     } else if (control === null) {
       // Raw text input (a JSON-looking string the pty would have received
       // verbatim is reachable in theory but is exotic for an agent terminal;
