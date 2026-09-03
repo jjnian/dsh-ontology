@@ -619,6 +619,16 @@ describe('service.openTab auto-expand for content opens', () => {
     expect(store.getSnapshot().state?.panelOpen).toBe(false)
   })
 
+  it('expands the hosting panel for a forced type-only open on a wide viewport', () => {
+    const store = createSidebarStore()
+    const service = createBetterSidebarService(store)
+    service.registerTab({ id: 'lineage', title: 'Lineage', component: () => null })
+    store.setSession('s1');
+    store.reduce(s => ({ ...s, panelOpen: false }));
+    service.openTab({ type: 'lineage', forcePanel: true })
+    expect(store.getSnapshot().state?.panelOpen).toBe(true);
+  })
+
   it('expands on a narrow viewport even when the open focuses an existing tab (id dedupe)', () => {
     setWidth(390)
     try {

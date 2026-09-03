@@ -338,6 +338,8 @@ export interface OpenTabSeed {
   url?: string
   /** JSON-serializable custom state carried on the minted tab (persisted across reloads; v0.12.0+). */
   meta?: unknown
+  /** Expand the hosting panel for explicit user clicks on type-only tabs. */
+  forcePanel?: boolean
 }
 
 /**
@@ -714,7 +716,7 @@ export function createBetterSidebarService(store: SidebarStore): BetterSidebarSe
       if (
         !targetsInactiveSession
         && typeof window !== 'undefined'
-        && (seed.path !== undefined || seed.url !== undefined)
+        && (seed.path !== undefined || seed.url !== undefined || seed.forcePanel === true)
       ) {
         if (isNarrowWidth(window.innerWidth)) {
           if (!landed.panelOpen) return togglePanel(landed)

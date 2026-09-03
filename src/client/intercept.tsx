@@ -154,7 +154,7 @@ export function registerTurnTailInterception(ctx: Context, store: SidebarStore):
       openInSidebar: (path: string) => { openSidebarFile(ctx, store, sessionId, path) },
       onShowInFolder: (files: readonly string[]) => { revealInExplorer(ctx, store, sessionId, files) },
         openLineage: () => {
-          ctx.get('betterSidebar')?.openTab({ type: 'lineage' }, { sessionId })
+          ctx.get('betterSidebar')?.openTab({ type: 'lineage', forcePanel: true }, { sessionId })
         },
     }),
   }, SidebarProducedFiles))

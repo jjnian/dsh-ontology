@@ -43,7 +43,7 @@ export function registerLineageToolView(ctx: Context): () => void {
     const open = (): void => {
       const sessionId = ctx.sessions.list.getSnapshot().current
       if (sessionId === undefined) return
-      ctx.get('betterSidebar')?.openTab({ type: 'lineage' }, { sessionId })
+      ctx.get('betterSidebar')?.openTab({ type: 'lineage', forcePanel: true }, { sessionId })
     }
     return (
       <button
